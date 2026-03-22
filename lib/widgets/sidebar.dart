@@ -24,20 +24,13 @@ class Sidebar extends StatelessWidget {
           ),
           const SizedBox(height: 40),
 
-          // PROFiL
+          // Menü öğeleri
           _buildMenuItem(Icons.person, "Profil", 0),
-
-          // AYAK ANALIZi
           _buildMenuItem(Icons.analytics, "Ayak Analizi", 1),
-
-          // SİPARİŞLER
           _buildMenuItem(Icons.shopping_bag, "Siparişler", 2),
-
-          // MAĞAZA
           _buildMenuItem(Icons.storefront, "Mağaza", 3),
-
-          // DESTEK
           _buildMenuItem(Icons.help_outline, "Destek", 4),
+          _buildMenuItem(Icons.speed, "Basınç Ölçüm", 5), // <-- yeni sekme
         ],
       ),
     );

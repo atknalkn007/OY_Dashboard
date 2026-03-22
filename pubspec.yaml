@@ -10,6 +10,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  
+  flutter_libserialport: ^0.6.0 # Windows için destek
 
   cupertino_icons: ^1.0.8
   #firebase_core: ^4.2.1

@@ -6,6 +6,7 @@ import 'profile_screen.dart';
 import 'analysis_screen.dart';
 import 'orders_screen.dart';
 import 'store_screen.dart';
+import 'pressure_screen.dart';
 import 'support_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -29,8 +30,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         OrdersScreen(currentUserEmail: widget.currentUserEmail),
         StoreScreen(currentUserEmail: widget.currentUserEmail),
         SupportScreen(currentUserEmail: widget.currentUserEmail),
+        const PressureScreen(), // <-- basınç ekranı
       ];
-
+      
   void _onItemSelected(int index) {
     setState(() {
       _selectedIndex = index;
