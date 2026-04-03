@@ -1,12 +1,17 @@
 import 'dart:typed_data';
 import 'dart:ui' as ui;
-import 'dart:async'; // 🔹 burayı ekle
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_libserialport/flutter_libserialport.dart';
 import 'dart:math';
 
 class PressureScreen extends StatefulWidget {
-  const PressureScreen({super.key});
+  final dynamic pressureRepository;
+
+  const PressureScreen({
+    super.key,
+    required this.pressureRepository,
+  });
 
   @override
   State<PressureScreen> createState() => _PressureScreenState();
@@ -26,7 +31,7 @@ class _PressureScreenState extends State<PressureScreen> {
 
   double _maxValue = 96;
   int _threshold = 9;
-  int _smoothSize = 0; // box blur kernel
+  int _smoothSize = 0;
 
   List<List<int>> _pressureData =
       List.generate(ROWS, (_) => List.filled(COLS, 0));
@@ -35,16 +40,26 @@ class _PressureScreenState extends State<PressureScreen> {
 
   ui.Image? _heatmapImage;
 
+  DateTime _lastSendTime = DateTime.now();
+
   @override
   void dispose() {
     _reader?.close();
     _port?.close();
+    _emailControllerDisposeSafe();
     super.dispose();
+  }
+
+  void _emailControllerDisposeSafe() {
+    // Şu an bu screen içinde controller yok.
+    // İleride eklenirse dispose düzeni bozulmasın diye boş bırakıldı.
   }
 
   void _connect(String portName) {
     try {
+      _reader?.close();
       _port?.close();
+
       _port = SerialPort(portName);
       _port!.openReadWrite();
 
@@ -72,14 +87,16 @@ class _PressureScreenState extends State<PressureScreen> {
 
   void _processBuffer() {
     while (true) {
-      int start = _findHeader();
+      final start = _findHeader();
+
       if (start == -1) {
         _buffer.clear();
         return;
       }
+
       if (_buffer.length < start + FRAME_LEN) return;
 
-      List<int> frame = _buffer.sublist(start, start + FRAME_LEN);
+      final frame = _buffer.sublist(start, start + FRAME_LEN);
       _buffer = _buffer.sublist(start + FRAME_LEN);
 
       _parseFrame(frame);
@@ -93,16 +110,20 @@ class _PressureScreenState extends State<PressureScreen> {
     return -1;
   }
 
-  void _parseFrame(List<int> frame) async {
-    List<int> payload = frame.sublist(4);
+  Future<void> _parseFrame(List<int> frame) async {
+    final payload = frame.sublist(4);
+
+    // 🔌 Gelecekte repository / Supabase için hazır hook
+    _sendToRepository(payload);
+
     if (payload.length < ROWS * COLS) return;
 
     List<List<int>> newData =
         List.generate(ROWS, (_) => List.filled(COLS, 0));
 
     for (int i = 0; i < ROWS * COLS; i++) {
-      int row = (ROWS - 1) - (i ~/ COLS); // flip vertical
-      int col = i % COLS;
+      final row = (ROWS - 1) - (i ~/ COLS);
+      final col = i % COLS;
 
       int value = payload[i];
       if (value < _threshold) value = 0;
@@ -110,23 +131,45 @@ class _PressureScreenState extends State<PressureScreen> {
       newData[row][col] = value;
     }
 
-    // smoothing
     newData = _applySmoothing(newData);
 
-    // heatmap image oluştur
-    _heatmapImage = await _generateHeatmapImage(newData);
+    final heatmapImage = await _generateHeatmapImage(newData);
+
+    if (!mounted) return;
 
     setState(() {
       _pressureData = newData;
+      _heatmapImage = heatmapImage;
       _frameCount++;
     });
   }
 
-  // BOX BLUR
+  void _sendToRepository(List<int> payload) {
+    final now = DateTime.now();
+
+    if (now.difference(_lastSendTime).inMilliseconds < 200) {
+      return;
+    }
+
+    _lastSendTime = now;
+
+    try {
+      // Şimdilik sadece hazırlık noktası.
+      // İleride örnek:
+      // widget.pressureRepository.sendPressureFrame(payload);
+
+      debugPrint("Frame ready for repository: ${payload.length} bytes");
+    } catch (e) {
+      debugPrint("Repository error: $e");
+    }
+  }
+
   List<List<int>> _applySmoothing(List<List<int>> data) {
     int k = _smoothSize;
+    if (k <= 0) return data;
     if (k % 2 == 0) k += 1;
-    int half = k ~/ 2;
+
+    final half = k ~/ 2;
 
     List<List<int>> result =
         List.generate(ROWS, (_) => List.filled(COLS, 0));
@@ -135,46 +178,54 @@ class _PressureScreenState extends State<PressureScreen> {
       for (int c = 0; c < COLS; c++) {
         int sum = 0;
         int count = 0;
+
         for (int dr = -half; dr <= half; dr++) {
           for (int dc = -half; dc <= half; dc++) {
-            int nr = r + dr;
-            int nc = c + dc;
+            final nr = r + dr;
+            final nc = c + dc;
+
             if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
               sum += data[nr][nc];
               count++;
             }
           }
         }
+
         result[r][c] = (sum / count).round();
       }
     }
+
     return result;
   }
 
-  // heatmap color map
   int _colorToInt(int value) {
-    if (value <= 0) return 0xFFFFFFFF; // beyaz
+    if (value <= 0) return 0xFFFFFFFF;
 
-    double norm = pow((value / _maxValue).clamp(0.0, 1.0), 0.7).toDouble();
+    final norm = pow((value / _maxValue).clamp(0.0, 1.0), 0.7).toDouble();
+
     int r, g;
+
     if (norm < 0.5) {
-      double t = norm * 2;
+      final t = norm * 2;
       r = (255 * t).toInt();
       g = 255;
     } else {
-      double t = (norm - 0.5) * 2;
+      final t = (norm - 0.5) * 2;
       r = 255;
       g = (255 * (1 - t)).toInt();
     }
+
     return (0xFF << 24) | (r << 16) | (g << 8);
   }
 
   Future<ui.Image> _generateHeatmapImage(List<List<int>> data) async {
     final pixels = Uint8List(ROWS * COLS * 4);
+
     for (int r = 0; r < ROWS; r++) {
       for (int c = 0; c < COLS; c++) {
-        int color = _colorToInt(data[r][c]);
-        int idx = (r * COLS + c) * 4;
+        final color = _colorToInt(data[r][c]);
+        final idx = (r * COLS + c) * 4;
+
         pixels[idx] = (color >> 16) & 0xFF;
         pixels[idx + 1] = (color >> 8) & 0xFF;
         pixels[idx + 2] = color & 0xFF;
@@ -183,6 +234,7 @@ class _PressureScreenState extends State<PressureScreen> {
     }
 
     final completer = Completer<ui.Image>();
+
     ui.decodeImageFromPixels(
       pixels,
       COLS,
@@ -190,6 +242,7 @@ class _PressureScreenState extends State<PressureScreen> {
       ui.PixelFormat.rgba8888,
       (img) => completer.complete(img),
     );
+
     return completer.future;
   }
 
@@ -206,7 +259,6 @@ class _PressureScreenState extends State<PressureScreen> {
           ),
           const SizedBox(height: 10),
 
-          // ÜST BAR (COM + 3 sliders)
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -255,7 +307,8 @@ class _PressureScreenState extends State<PressureScreen> {
                             max: 20,
                             divisions: 20,
                             value: _threshold.toDouble(),
-                            onChanged: (v) => setState(() => _threshold = v.toInt()),
+                            onChanged: (v) =>
+                                setState(() => _threshold = v.toInt()),
                           ),
                         ),
                         Text(_threshold.toString()),
@@ -270,7 +323,8 @@ class _PressureScreenState extends State<PressureScreen> {
                             max: 15,
                             divisions: 7,
                             value: _smoothSize.toDouble(),
-                            onChanged: (v) => setState(() => _smoothSize = v.toInt()),
+                            onChanged: (v) =>
+                                setState(() => _smoothSize = v.toInt()),
                           ),
                         ),
                         Text(_smoothSize.toString()),
@@ -287,7 +341,6 @@ class _PressureScreenState extends State<PressureScreen> {
           Text("Frames: $_frameCount"),
           const SizedBox(height: 10),
 
-          // 🔹 HEATMAP CANVAS
           Expanded(
             child: CustomPaint(
               painter: _heatmapImage != null
@@ -304,32 +357,30 @@ class _PressureScreenState extends State<PressureScreen> {
 
 class HeatmapPainter extends CustomPainter {
   final ui.Image image;
+
   HeatmapPainter(this.image);
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..filterQuality = FilterQuality.high;
 
-    // Sensör oranı: 344/452
-    double sensorRatio = 452 / 344; 
-    double canvasRatio = size.width / size.height;
+    final sensorRatio = 452 / 344;
+    final canvasRatio = size.width / size.height;
 
     double drawWidth, drawHeight;
     double offsetX = 0, offsetY = 0;
 
     if (canvasRatio > sensorRatio) {
-      // canvas daha geniş: height sınırlayıcı
       drawHeight = size.height;
       drawWidth = drawHeight * sensorRatio;
       offsetX = (size.width - drawWidth) / 2;
     } else {
-      // canvas daha uzun: width sınırlayıcı
       drawWidth = size.width;
       drawHeight = drawWidth / sensorRatio;
       offsetY = (size.height - drawHeight) / 2;
     }
 
-    Rect dstRect = Rect.fromLTWH(offsetX, offsetY, drawWidth, drawHeight);
+    final dstRect = Rect.fromLTWH(offsetX, offsetY, drawWidth, drawHeight);
 
     canvas.drawImageRect(
       image,

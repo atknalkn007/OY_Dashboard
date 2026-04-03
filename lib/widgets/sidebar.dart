@@ -1,17 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:oy_site/models/app_user.dart';
 
 class Sidebar extends StatelessWidget {
   final Function(int) onItemSelected;
   final int selectedIndex;
+  final AppUser currentUser;
 
   const Sidebar({
     super.key,
     required this.onItemSelected,
     required this.selectedIndex,
+    required this.currentUser,
   });
 
   @override
   Widget build(BuildContext context) {
+    final menuItems = _getMenuItemsByRole();
+
     return Container(
       width: 220,
       color: Colors.grey[200],
@@ -23,17 +28,58 @@ class Sidebar extends StatelessWidget {
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 40),
+          ...menuItems.asMap().entries.map((entry) {
+            final index = entry.key;
+            final item = entry.value;
 
-          // Menü öğeleri
-          _buildMenuItem(Icons.person, "Profil", 0),
-          _buildMenuItem(Icons.analytics, "Ayak Analizi", 1),
-          _buildMenuItem(Icons.shopping_bag, "Siparişler", 2),
-          _buildMenuItem(Icons.storefront, "Mağaza", 3),
-          _buildMenuItem(Icons.help_outline, "Destek", 4),
-          _buildMenuItem(Icons.speed, "Basınç Ölçüm", 5), // <-- yeni sekme
+            return _buildMenuItem(
+              item.icon,
+              item.title,
+              index,
+            );
+          }),
         ],
       ),
     );
+  }
+
+  List<_SidebarMenuItem> _getMenuItemsByRole() {
+    switch (currentUser.roleCode) {
+      case RoleCodes.expert:
+        return const [
+          _SidebarMenuItem(Icons.person, "Profil"),
+          _SidebarMenuItem(Icons.groups, "Hastalar"),
+          _SidebarMenuItem(Icons.analytics, "Ayak Analizi"),
+          _SidebarMenuItem(Icons.shopping_bag, "Siparişler"),
+          _SidebarMenuItem(Icons.help_outline, "Destek"),
+          _SidebarMenuItem(Icons.speed, "Basınç Ölçüm"),
+        ];
+
+      case RoleCodes.customer:
+        return const [
+          _SidebarMenuItem(Icons.person, "Profil"),
+          _SidebarMenuItem(Icons.shopping_bag, "Siparişler"),
+          _SidebarMenuItem(Icons.storefront, "Mağaza"),
+          _SidebarMenuItem(Icons.help_outline, "Destek"),
+        ];
+
+      case RoleCodes.optiYouTeam:
+        return const [
+          _SidebarMenuItem(Icons.person, "Profil"),
+          _SidebarMenuItem(Icons.groups, "Hastalar"),
+          _SidebarMenuItem(Icons.analytics, "Ayak Analizi"),
+          _SidebarMenuItem(Icons.shopping_bag, "Siparişler"),
+          _SidebarMenuItem(Icons.storefront, "Mağaza"),
+          _SidebarMenuItem(Icons.help_outline, "Destek"),
+          _SidebarMenuItem(Icons.speed, "Basınç Ölçüm"),
+        ];
+
+      default:
+        return const [
+          _SidebarMenuItem(Icons.person, "Profil"),
+          _SidebarMenuItem(Icons.help_outline, "Destek"),
+        ];
+    }
   }
 
   Widget _buildMenuItem(IconData icon, String title, int index) {
@@ -57,4 +103,11 @@ class Sidebar extends StatelessWidget {
       ),
     );
   }
+}
+
+class _SidebarMenuItem {
+  final IconData icon;
+  final String title;
+
+  const _SidebarMenuItem(this.icon, this.title);
 }
