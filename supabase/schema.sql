@@ -14,9 +14,9 @@ CREATE TABLE public.roles (
 );
 
 INSERT INTO public.roles (role_code, role_name) VALUES
-  ('expert',      'Uzman'),
-  ('customer',    'Müşteri'),
-  ('optiYouTeam', 'OptiYou Ekibi');
+  ('EXPERT',       'Uzman'),
+  ('CUSTOMER',     'Müşteri'),
+  ('OPTIYOU_TEAM', 'OptiYou Ekibi');
 
 -- ============================================================
 -- 2. CLINICS
@@ -127,7 +127,14 @@ BEGIN
     NEW.id,
     COALESCE(NEW.raw_user_meta_data->>'first_name', 'Yeni'),
     COALESCE(NEW.raw_user_meta_data->>'last_name',  'Kullanıcı'),
-    (SELECT id FROM public.roles WHERE role_code = 'customer' LIMIT 1)
+    (
+      SELECT id FROM public.roles
+      WHERE role_code = COALESCE(
+        NULLIF(TRIM(NEW.raw_user_meta_data->>'role_code'), ''),
+        'CUSTOMER'
+      )
+      LIMIT 1
+    )
   );
   RETURN NEW;
 END;

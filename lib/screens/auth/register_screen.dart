@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:oy_site/models/app_user.dart';
 import 'package:oy_site/services/auth_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -23,6 +24,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
   bool _success = false;
+  String? _selectedRoleCode;
+
+  static const List<Map<String, String>> _roles = [
+    {'code': RoleCodes.expert,      'label': 'Uzman'},
+    {'code': RoleCodes.customer,    'label': 'Müşteri'},
+    {'code': RoleCodes.optiYouTeam, 'label': 'OptiYou Ekibi'},
+  ];
 
   Future<void> _register() async {
     final firstName = _firstNameController.text.trim();
@@ -33,6 +41,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     if (firstName.isEmpty || lastName.isEmpty) {
       setState(() => _errorMessage = 'Lütfen adınızı ve soyadınızı girin.');
+      return;
+    }
+    if (_selectedRoleCode == null) {
+      setState(() => _errorMessage = 'Lütfen kullanıcı tipini seçin.');
       return;
     }
     if (email.isEmpty) {
@@ -59,6 +71,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         password: password,
         firstName: firstName,
         lastName: lastName,
+        roleCode: _selectedRoleCode!,
       );
 
       if (!mounted) return;
@@ -199,8 +212,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        TextField(
+        const SizedBox(height: 16),        DropdownButtonFormField<String>(
+          value: _selectedRoleCode,
+          decoration: InputDecoration(
+            labelText: 'Kullanıcı Tipi',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          items: _roles.map((role) {
+            return DropdownMenuItem<String>(
+              value: role['code'],
+              child: Text(role['label']!),
+            );
+          }).toList(),
+          onChanged: _isLoading
+              ? null
+              : (value) {
+                  setState(() {
+                    _selectedRoleCode = value;
+                    _errorMessage = null;
+                  });
+                },
+        ),
+        const SizedBox(height: 16),        TextField(
           controller: _emailController,
           enabled: !_isLoading,
           keyboardType: TextInputType.emailAddress,
