@@ -1,8 +1,11 @@
+# ------------------------
 # Miscellaneous
+# ------------------------
 *.class
 *.log
 *.pyc
 *.swp
+*.tmp
 .DS_Store
 .atom/
 .build/
@@ -12,34 +15,80 @@
 .swiftpm/
 migrate_working_dir/
 
-# IntelliJ related
+# ------------------------
+# IntelliJ / IDE
+# ------------------------
 *.iml
 *.ipr
 *.iws
 .idea/
+.vscode/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
-
-# Flutter/Dart/Pub related
+# ------------------------
+# Flutter / Dart / Pub
+# ------------------------
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
 .flutter-plugins-dependencies
+.flutter-plugins
 .pub-cache/
 .pub/
 /build/
 /coverage/
 
-# Symbolication related
-app.*.symbols
+# ------------------------
+# Generated plugin files (ÇOK ÖNEMLİ)
+# ------------------------
+linux/flutter/generated_*
+windows/flutter/generated_*
+macos/Flutter/Generated*
 
-# Obfuscation related
-app.*.map.json
+# ------------------------
+# Flutter ephemeral (EN KRİTİK KISIM)
+# ------------------------
+windows/flutter/ephemeral/
+linux/flutter/ephemeral/
+macos/Flutter/ephemeral/
 
-# Android Studio will place build artifacts here
+# ------------------------
+# Android
+# ------------------------
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/.gradle/
+/android/local.properties
+
+# ------------------------
+# iOS
+# ------------------------
+ios/Pods/
+ios/Runner.xcworkspace/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+
+# ------------------------
+# macOS build artifacts
+# ------------------------
+macos/Flutter/ephemeral/
+
+# ------------------------
+# Windows build artifacts
+# ------------------------
+windows/flutter/ephemeral/
+
+# ------------------------
+# Linux build artifacts
+# ------------------------
+linux/flutter/ephemeral/
+
+# ------------------------
+# Symbolication
+# ------------------------
+app.*.symbols
+
+# ------------------------
+# Obfuscation
+# ------------------------
+app.*.map.json

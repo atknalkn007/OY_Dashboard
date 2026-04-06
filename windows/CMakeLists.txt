@@ -1,5 +1,5 @@
 # Project-level configuration.
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.1...4.7)
 project(oy_site LANGUAGES CXX)
 
 # The name of the executable created for the application. Change this to change
@@ -8,7 +8,7 @@ set(BINARY_NAME "oy_site")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.
-cmake_policy(VERSION 3.14...3.25)
+cmake_policy(VERSION 3.1...4.7)
 
 # Define build configuration option.
 get_property(IS_MULTICONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
@@ -65,9 +65,8 @@ include(flutter/generated_plugins.cmake)
 set(BUILD_BUNDLE_DIR "$<TARGET_FILE_DIR:${BINARY_NAME}>")
 # Make the "install" step default, as it's required to run.
 set(CMAKE_VS_INCLUDE_INSTALL_TO_DEFAULT_BUILD 1)
-if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-  set(CMAKE_INSTALL_PREFIX "${BUILD_BUNDLE_DIR}" CACHE PATH "..." FORCE)
-endif()
+# Build klasörü altına kurulum yap
+set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Install path" FORCE)
 
 set(INSTALL_BUNDLE_DATA_DIR "${CMAKE_INSTALL_PREFIX}/data")
 set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}")
