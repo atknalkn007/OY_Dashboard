@@ -4,6 +4,7 @@ import 'package:oy_site/models/app_user.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/dashboard/dashboard_screen.dart';
+import 'screens/home_screen.dart';
 
 // App config
 class AppConfig {
@@ -46,7 +47,7 @@ class OYDashboardApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
         useMaterial3: true,
       ),
-      home: LoginScreen(
+      home: HomeScreen(
         pressureRepository: pressureRepository,
       ),
       onGenerateRoute: (settings) {
