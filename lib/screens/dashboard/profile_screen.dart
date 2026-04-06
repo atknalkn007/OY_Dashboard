@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:oy_site/models/app_user.dart';
+import 'package:oy_site/screens/auth/login_screen.dart';
+import 'package:oy_site/services/auth_service.dart';
 
 class ProfileScreen extends StatelessWidget {
   final AppUser currentUser;
@@ -179,8 +181,19 @@ class ProfileScreen extends StatelessWidget {
             _buildSettingsButton(
               icon: Icons.logout,
               text: 'Çıkış yap',
-              onTap: () {
-                Navigator.pop(context);
+              onTap: () async {
+                await AuthService().signOut();
+                if (context.mounted) {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const LoginScreen(
+                        pressureRepository: null,
+                      ),
+                    ),
+                    (route) => false,
+                  );
+                }
               },
             ),
           ],

@@ -30,6 +30,32 @@ class AuthService {
     return AppUser.fromMap(profileData);
   }
 
+  /// Registers a new user with email/password and metadata for the trigger.
+  /// Returns the created auth user's ID. The profile row is created automatically
+  /// by the on_auth_user_created trigger using first_name / last_name metadata.
+  Future<String> signUp({
+    required String email,
+    required String password,
+    required String firstName,
+    required String lastName,
+  }) async {
+    final response = await _client.auth.signUp(
+      email: email,
+      password: password,
+      data: {
+        'first_name': firstName,
+        'last_name': lastName,
+      },
+    );
+
+    final authUser = response.user;
+    if (authUser == null) {
+      throw const AuthException('Kayıt başarısız.');
+    }
+
+    return authUser.id;
+  }
+
   /// Signs out the current user.
   Future<void> signOut() async {
     await _client.auth.signOut();

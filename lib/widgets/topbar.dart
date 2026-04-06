@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:oy_site/models/app_user.dart';
 import 'package:oy_site/screens/auth/login_screen.dart';
 import 'package:oy_site/screens/dashboard/profile_screen.dart';
+import 'package:oy_site/services/auth_service.dart';
 
 class Topbar extends StatelessWidget {
   final AppUser currentUser;
@@ -72,7 +73,7 @@ class Topbar extends StatelessWidget {
               const SizedBox(width: 12),
               PopupMenuButton<_TopbarMenuAction>(
                 tooltip: 'Profil menüsü',
-                onSelected: (action) {
+                onSelected: (action) async {
                   switch (action) {
                     case _TopbarMenuAction.viewProfile:
                       Navigator.push(
@@ -96,13 +97,18 @@ class Topbar extends StatelessWidget {
                       break;
 
                     case _TopbarMenuAction.logout:
-                      Navigator.pushAndRemoveUntil(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const _LogoutPlaceholderScreen(),
-                        ),
-                        (route) => false,
-                      );
+                      await AuthService().signOut();
+                      if (context.mounted) {
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const LoginScreen(
+                              pressureRepository: null,
+                            ),
+                          ),
+                          (route) => false,
+                        );
+                      }
                       break;
                   }
                 },
@@ -150,17 +156,4 @@ enum _TopbarMenuAction {
   viewProfile,
   editProfile,
   logout,
-}
-
-class _LogoutPlaceholderScreen extends StatelessWidget {
-  const _LogoutPlaceholderScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Text('Login ekranına yönlendirme burada yapılacak.'),
-      ),
-    );
-  }
 }

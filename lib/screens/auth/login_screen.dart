@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:oy_site/screens/auth/register_screen.dart';
 import 'package:oy_site/services/auth_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:oy_site/screens/dashboard/dashboard_screen.dart';
@@ -188,6 +189,18 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                 ),
+              ),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: _isLoading
+                    ? null
+                    : () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const RegisterScreen(),
+                          ),
+                        ),
+                child: const Text('Hesabın yok mu? Kayıt Ol'),
               ),
             ],
           ),
