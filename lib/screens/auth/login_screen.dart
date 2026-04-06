@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:oy_site/screens/auth/register_screen.dart';
+import 'package:oy_site/screens/home_screen.dart';
 import 'package:oy_site/services/auth_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:oy_site/screens/dashboard/dashboard_screen.dart';
@@ -201,6 +202,23 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                 child: const Text('Hesabın yok mu? Kayıt Ol'),
+              ),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: () => Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => HomeScreen(
+                      pressureRepository: widget.pressureRepository,
+                    ),
+                  ),
+                  (_) => false,
+                ),
+                icon: const Icon(Icons.arrow_back, size: 18),
+                label: const Text('Ana Sayfa'),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.teal,
+                ),
               ),
             ],
           ),

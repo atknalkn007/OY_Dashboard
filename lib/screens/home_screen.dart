@@ -12,6 +12,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final ScrollController _scrollController = ScrollController();
+  final GlobalKey _featuresKey = GlobalKey();
+  final GlobalKey _aboutKey = GlobalKey();
 
   @override
   void dispose() {
@@ -37,6 +39,17 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _scrollTo(GlobalKey key) {
+    final ctx = key.currentContext;
+    if (ctx != null) {
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final w = MediaQuery.of(context).size.width;
@@ -49,6 +62,9 @@ class _HomeScreenState extends State<HomeScreen> {
           _Navbar(
             onLogin: _goToLogin,
             onRegister: _goToRegister,
+            onScrollToFeatures: () => _scrollTo(_featuresKey),
+            onScrollToAbout: () => _scrollTo(_aboutKey),
+            isNarrow: isNarrow,
           ),
           Expanded(
             child: SingleChildScrollView(
@@ -56,8 +72,8 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 children: [
                   _HeroSection(isNarrow: isNarrow, onGetStarted: _goToRegister),
-                  _FeaturesSection(isNarrow: isNarrow),
-                  _AboutSection(isNarrow: isNarrow),
+                  Container(key: _featuresKey, child: _FeaturesSection(isNarrow: isNarrow)),
+                  Container(key: _aboutKey, child: _AboutSection(isNarrow: isNarrow)),
                   _CtaSection(onGetStarted: _goToRegister, onLogin: _goToLogin),
                   const _Footer(),
                 ],
@@ -75,7 +91,17 @@ class _HomeScreenState extends State<HomeScreen> {
 class _Navbar extends StatelessWidget {
   final VoidCallback onLogin;
   final VoidCallback onRegister;
-  const _Navbar({required this.onLogin, required this.onRegister});
+  final VoidCallback onScrollToFeatures;
+  final VoidCallback onScrollToAbout;
+  final bool isNarrow;
+
+  const _Navbar({
+    required this.onLogin,
+    required this.onRegister,
+    required this.onScrollToFeatures,
+    required this.onScrollToAbout,
+    required this.isNarrow,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -120,36 +146,160 @@ class _Navbar extends StatelessWidget {
             ],
           ),
           const Spacer(),
-          // Buttons
-          OutlinedButton(
-            onPressed: onLogin,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.teal,
-              side: const BorderSide(color: Colors.teal),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+          // Nav links (wide only)
+          if (!isNarrow) ...[  
+            _NavLink(label: 'Özellikler', onTap: onScrollToFeatures),
+            _NavLink(label: 'Hakkımızda', onTap: onScrollToAbout),
+            const SizedBox(width: 16),
+            OutlinedButton(
+              onPressed: onLogin,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.teal,
+                side: const BorderSide(color: Colors.teal),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
+              child: const Text('Giriş Yap',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
             ),
-            child: const Text('Giriş Yap',
-                style: TextStyle(fontWeight: FontWeight.w600)),
-          ),
-          const SizedBox(width: 10),
-          ElevatedButton(
-            onPressed: onRegister,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.teal,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+            const SizedBox(width: 10),
+            ElevatedButton(
+              onPressed: onRegister,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.teal,
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
+              child: const Text('Kayıt Ol',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
             ),
-            child: const Text('Kayıt Ol',
-                style: TextStyle(fontWeight: FontWeight.w600)),
-          ),
+          ] else
+            // Hamburger menu (narrow)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.menu, color: Color(0xFF1A2340), size: 26),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              offset: const Offset(0, 52),
+              onSelected: (value) {
+                switch (value) {
+                  case 'features':
+                    onScrollToFeatures();
+                  case 'about':
+                    onScrollToAbout();
+                  case 'login':
+                    onLogin();
+                  case 'register':
+                    onRegister();
+                }
+              },
+              itemBuilder: (_) => [
+                const PopupMenuItem(
+                  value: 'features',
+                  child: Row(
+                    children: [
+                      Icon(Icons.star_outline, size: 18, color: Colors.teal),
+                      SizedBox(width: 10),
+                      Text('Özellikler'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'about',
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, size: 18, color: Colors.teal),
+                      SizedBox(width: 10),
+                      Text('Hakkımızda'),
+                    ],
+                  ),
+                ),
+                const PopupMenuDivider(),
+                const PopupMenuItem(
+                  value: 'login',
+                  child: Row(
+                    children: [
+                      Icon(Icons.login, size: 18, color: Colors.teal),
+                      SizedBox(width: 10),
+                      Text('Giriş Yap'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'register',
+                  child: Row(
+                    children: [
+                      Icon(Icons.person_add_outlined,
+                          size: 18, color: Colors.teal),
+                      SizedBox(width: 10),
+                      Text('Kayıt Ol'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Nav link with hover underline ────────────────────────────────────────────
+
+class _NavLink extends StatefulWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _NavLink({required this.label, required this.onTap});
+
+  @override
+  State<_NavLink> createState() => _NavLinkState();
+}
+
+class _NavLinkState extends State<_NavLink> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                widget.label,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color:
+                      _hovered ? Colors.teal : const Color(0xFF3D4E6B),
+                ),
+              ),
+              const SizedBox(height: 3),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                height: 2,
+                width: _hovered ? 32.0 : 0.0,
+                decoration: BoxDecoration(
+                  color: Colors.teal,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
