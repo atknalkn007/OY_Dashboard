@@ -17,6 +17,8 @@ class StoreScreen extends StatefulWidget {
 
 class _StoreScreenState extends State<StoreScreen> {
   List<Map<String, dynamic>> _products = [];
+  bool _isLoading = true;
+  String? _loadError;
 
   @override
   void initState() {
@@ -25,16 +27,37 @@ class _StoreScreenState extends State<StoreScreen> {
   }
 
   Future<void> _loadProducts() async {
-    final rawData = await rootBundle.loadString('assets/products.csv');
-    final csvTable = const CsvToListConverter().convert(rawData);
+    try {
+      final rawData = await rootBundle.loadString('assets/products.csv');
+      final csvTable = const CsvToListConverter(
+        shouldParseNumbers: false,
+        eol: '\n',
+      ).convert(rawData);
 
-    final headers = csvTable.first.cast<String>();
+      if (csvTable.isEmpty) {
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
 
-    final list = csvTable.skip(1).map((row) {
-      return Map<String, dynamic>.fromIterables(headers, row);
-    }).toList();
+      final headers = csvTable.first.cast<String>();
+      final list = csvTable
+          .skip(1)
+          .where((row) => row.length == headers.length)
+          .map((row) =>
+              Map<String, dynamic>.fromIterables(headers, row))
+          .toList();
 
-    setState(() => _products = list);
+      if (mounted) setState(() {
+        _products = list;
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('StoreScreen: product load error: $e');
+      if (mounted) setState(() {
+        _isLoading = false;
+        _loadError = e.toString();
+      });
+    }
   }
 
   @override
@@ -44,8 +67,25 @@ class _StoreScreenState extends State<StoreScreen> {
         title: const Text("Mağaza"),
         backgroundColor: Colors.teal,
       ),
-      body: _products.isEmpty
+      body: _isLoading
           ? const Center(child: CircularProgressIndicator())
+          : _loadError != null
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.error_outline,
+                          color: Colors.red, size: 48),
+                      const SizedBox(height: 12),
+                      const Text('Ürünler yüklenemedi.',
+                          style: TextStyle(fontSize: 16)),
+                      const SizedBox(height: 8),
+                      Text(_loadError!,
+                          style: TextStyle(
+                              color: Colors.grey.shade600, fontSize: 12)),
+                    ],
+                  ),
+                )
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
