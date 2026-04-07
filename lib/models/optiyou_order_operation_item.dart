@@ -2,15 +2,21 @@ import 'package:oy_site/models/order_model.dart';
 
 class OptiYouOrderOperationItem {
   final OrderModel order;
+
+  final String patientName; // ✅ EKLENDİ
+
   final String expertName;
   final String clinicName;
+
   final bool hasMissingData;
   final String missingDataSummary;
+
   final String priorityLabel;
   final String currentColumnCode;
 
   const OptiYouOrderOperationItem({
     required this.order,
+    required this.patientName, // ✅ constructor'a eklendi
     required this.expertName,
     required this.clinicName,
     required this.hasMissingData,
@@ -25,6 +31,7 @@ class OptiYouOrderOperationItem {
 
   OptiYouOrderOperationItem copyWith({
     OrderModel? order,
+    String? patientName, // ✅ eklendi
     String? expertName,
     String? clinicName,
     bool? hasMissingData,
@@ -34,6 +41,7 @@ class OptiYouOrderOperationItem {
   }) {
     return OptiYouOrderOperationItem(
       order: order ?? this.order,
+      patientName: patientName ?? this.patientName, // ✅ eklendi
       expertName: expertName ?? this.expertName,
       clinicName: clinicName ?? this.clinicName,
       hasMissingData: hasMissingData ?? this.hasMissingData,

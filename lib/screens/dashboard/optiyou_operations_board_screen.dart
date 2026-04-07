@@ -315,7 +315,7 @@ class _OptiYouOperationsBoardScreenState
         children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: const BorderRadius.vertical(
@@ -331,16 +331,16 @@ class _OptiYouOperationsBoardScreenState
                 Text(
                   column.title,
                   style: const TextStyle(
-                    fontSize: 15,
+                    fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Text(
                   '${items.length} sipariş',
                   style: TextStyle(
                     color: Colors.grey[700],
-                    fontSize: 12,
+                    fontSize: 11,
                   ),
                 ),
               ],
@@ -355,10 +355,15 @@ class _OptiYouOperationsBoardScreenState
                       style: TextStyle(color: Colors.grey[500]),
                     ),
                   )
-                : ListView.separated(
-                    padding: const EdgeInsets.all(12),
+                : GridView.builder(
+                    padding: const EdgeInsets.all(10),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
+                      childAspectRatio: 0.8,
+                    ),
                     itemCount: items.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       return _buildOrderCard(items[index]);
                     },
@@ -405,14 +410,14 @@ class _OptiYouOperationsBoardScreenState
     final canMoveRight = _canMoveRight(item);
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: const [
           BoxShadow(
             color: Colors.black12,
-            blurRadius: 6,
+            blurRadius: 4,
           ),
         ],
       ),
@@ -421,94 +426,50 @@ class _OptiYouOperationsBoardScreenState
         children: [
           Text(
             order.orderNo,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               fontWeight: FontWeight.bold,
-              fontSize: 15,
+              fontSize: 13,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
+
           Text(
-            item.expertName,
-            style: TextStyle(color: Colors.grey[800]),
+            item.patientName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.grey[800],
+              fontSize: 11.5,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           const SizedBox(height: 4),
+
           Text(
-            item.clinicName,
-            style: TextStyle(color: Colors.grey[600], fontSize: 12),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            _productLabel(order.productType),
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Sipariş: ${_formatDate(order.orderedAt)}',
-            style: TextStyle(color: Colors.grey[700], fontSize: 12),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  _statusLabel(order.orderStatus),
-                  style: TextStyle(
-                    color: statusColor,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 11,
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: priorityColor.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  item.priorityLabel,
-                  style: TextStyle(
-                    color: priorityColor,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 11,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          if (item.hasMissingData) ...[
-            const SizedBox(height: 10),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.10),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                'Eksik: ${item.missingDataSummary}',
-                style: TextStyle(
-                  color: Colors.orange.shade800,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+            'Uzman: ${item.expertName}',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.grey[700],
+              fontSize: 11,
             ),
-          ],
-          const SizedBox(height: 10),
+          ),
+          const SizedBox(height: 4),
+
+          Text(
+            'Klinik: ${item.clinicName}',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 11,
+            ),
+          ),
+
+          const Spacer(),
+
           Align(
             alignment: Alignment.bottomRight,
             child: Row(
