@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:oy_site/models/customer_analysis_result_model.dart';
 import 'package:oy_site/models/session_scan_assets.dart';
 import 'package:oy_site/services/scan/session_scan_assets_parser.dart';
+import 'package:oy_site/models/parsed_scan_report.dart';
 
 class MockCustomerAnalysisRepository {
   final SessionScanAssetsParser _parser = const SessionScanAssetsParser();
@@ -101,6 +102,176 @@ class MockCustomerAnalysisRepository {
         leftStlPath: assets.stlLeftPath,
         rightStlPath: assets.stlRightPath,
       ),
+
+      parsedReport: _buildMockParsedReport(
+        reportNo: '20251104001',
+        reportDate: '2025-11-04',
+        reportTime: '23:26:05',
+        leftFootLength: 250.8,
+        rightFootLength: 248.8,
+        leftFootWidth: 102.4,
+        rightFootWidth: 101.8,
+        leftArchHeight: 13.5,
+        rightArchHeight: 12.4,
+        leftHalluxAngle: 2.4,
+        rightHalluxAngle: 1.1,
+        leftPronatorAngle: 2.2,
+        rightPronatorAngle: 0.6,
+      ),
     );
   }
+
+  ParsedScanReport _buildMockParsedReport({
+    required String reportNo,
+    required String reportDate,
+    required String reportTime,
+    required double leftFootLength,
+    required double rightFootLength,
+    required double leftFootWidth,
+    required double rightFootWidth,
+    required double leftArchHeight,
+    required double rightArchHeight,
+    required double leftHalluxAngle,
+    required double rightHalluxAngle,
+    required double leftPronatorAngle,
+    required double rightPronatorAngle,
+  }) {
+    return ParsedScanReport(
+      reportNo: reportNo,
+      reportDate: reportDate,
+      reportTime: reportTime,
+      storeCode: 'tuerqi020001',
+      address: '',
+      customerName: 'qq',
+      gender: 'Male',
+      age: '42',
+      phone: '121',
+      leftFootLength: leftFootLength,
+      rightFootLength: rightFootLength,
+      leftFootWidth: leftFootWidth,
+      rightFootWidth: rightFootWidth,
+      leftArchHeight: leftArchHeight,
+      rightArchHeight: rightArchHeight,
+      leftHalluxAngle: leftHalluxAngle,
+      rightHalluxAngle: rightHalluxAngle,
+      leftPronatorAngle: leftPronatorAngle,
+      rightPronatorAngle: rightPronatorAngle,
+      leftShoeSize: '40(WE)',
+      rightShoeSize: '40(WE)',
+      leftArchType: 'Severe Flat',
+      rightArchType: 'Severe Flat',
+      leftArchIndex: 0.326,
+      rightArchIndex: 0.306,
+      recommendationText:
+          'Uzun süre ayakta kalma ve uygun destek kullanımı önerilir.',
+    );
+  }
+
+  Future<List<CustomerAnalysisResult>> getAnalysisHistory({
+  required int userId,
+}) async {
+  final latest = await getLatestAnalysis(userId: userId);
+
+  final older1 = CustomerAnalysisResult(
+    sessionCode: 'SES-2026-0318',
+    locationLabel: 'OptiYou İzmir',
+    analysisDate: DateTime(2026, 3, 18),
+    overallSummary:
+        'Önceki ölçümde sol ayakta yük dağılımı daha dengesiz görünmektedir.',
+    generalRiskNote:
+        'Destekli kullanım sürdürülmelidir.',
+    leftFoot: const CustomerFootSummary(
+      side: 'left',
+      footType: 'Düz taban eğilimi',
+      pressureSummary: 'Topuk ve ön ayakta yük artışı',
+      balanceSummary: 'Sol ayakta yük daha belirgin',
+      archSupportNeed: 'Yüksek',
+      mainFinding: 'Kemer desteği ihtiyacı daha belirgin',
+      pressureScore: 65,
+      stabilityScore: 58,
+      archScore: 35,
+    ),
+    rightFoot: const CustomerFootSummary(
+      side: 'right',
+      footType: 'Nötr - hafif destek ihtiyacı',
+      pressureSummary: 'Ön ayakta yüklenme',
+      balanceSummary: 'Sağ ayakta denge daha iyi',
+      archSupportNeed: 'Orta',
+      mainFinding: 'Destek ihtiyacı mevcut',
+      pressureScore: 61,
+      stabilityScore: 66,
+      archScore: 48,
+    ),
+    metrics: latest.metrics,
+    recommendations: latest.recommendations,
+    visuals: latest.visuals,
+    parsedReport: _buildMockParsedReport(
+      reportNo: '20251018001',
+      reportDate: '2025-10-18',
+      reportTime: '15:10:12',
+      leftFootLength: 251.2,
+      rightFootLength: 249.1,
+      leftFootWidth: 103.1,
+      rightFootWidth: 102.3,
+      leftArchHeight: 12.8,
+      rightArchHeight: 11.9,
+      leftHalluxAngle: 3.1,
+      rightHalluxAngle: 1.5,
+      leftPronatorAngle: 3.0,
+      rightPronatorAngle: 1.2,
+    ),
+  );
+
+  final older2 = CustomerAnalysisResult(
+    sessionCode: 'SES-2026-0210',
+    locationLabel: 'OptiYou İzmir',
+    analysisDate: DateTime(2026, 2, 10),
+    overallSummary:
+        'İlk ölçümlerde kemer desteği ihtiyacı daha belirgindir.',
+    generalRiskNote:
+        'Destekleyici iç taban kullanımı önerilmektedir.',
+    leftFoot: const CustomerFootSummary(
+      side: 'left',
+      footType: 'Düz taban eğilimi',
+      pressureSummary: 'Topuk bölgesinde belirgin yük',
+      balanceSummary: 'Sol ayakta yük daha fazla',
+      archSupportNeed: 'Yüksek',
+      mainFinding: 'Kemer desteği ihtiyacı belirgin',
+      pressureScore: 58,
+      stabilityScore: 52,
+      archScore: 30,
+    ),
+    rightFoot: const CustomerFootSummary(
+      side: 'right',
+      footType: 'Nötr - hafif destek ihtiyacı',
+      pressureSummary: 'Ön ayakta orta yük',
+      balanceSummary: 'Sağ ayakta denge daha iyi',
+      archSupportNeed: 'Orta',
+      mainFinding: 'Uzun süreli kullanımda destek önerilir',
+      pressureScore: 55,
+      stabilityScore: 60,
+      archScore: 44,
+    ),
+    metrics: latest.metrics,
+    recommendations: latest.recommendations,
+    visuals: latest.visuals,
+    parsedReport: _buildMockParsedReport(
+      reportNo: '20250902001',
+      reportDate: '2025-09-02',
+      reportTime: '11:42:22',
+      leftFootLength: 251.6,
+      rightFootLength: 249.4,
+      leftFootWidth: 103.8,
+      rightFootWidth: 102.9,
+      leftArchHeight: 12.1,
+      rightArchHeight: 11.2,
+      leftHalluxAngle: 4.0,
+      rightHalluxAngle: 1.9,
+      leftPronatorAngle: 3.8,
+      rightPronatorAngle: 1.8,
+    ),
+  );
+
+  return [latest, older1, older2];
+}
 }

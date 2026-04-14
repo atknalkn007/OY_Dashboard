@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:oy_site/data/mock/mock_customer_analysis_repository.dart';
 import 'package:oy_site/models/app_user.dart';
 import 'package:oy_site/models/customer_analysis_result_model.dart';
+import 'package:oy_site/widgets/analysis_score_trend_chart.dart';
 
 class CustomerAnalysisResultsScreen extends StatefulWidget {
   final AppUser currentUser;
@@ -48,61 +49,14 @@ class _CustomerAnalysisResultsScreenState
     });
 
     try {
-      final latest = await _repository.getLatestAnalysis(
+      final results = await _repository.getAnalysisHistory(
         userId: widget.currentUser.userId!,
-      );
-
-      final older1 = CustomerAnalysisResult(
-        analysisDate: DateTime(2026, 3, 18),
-        sessionCode: 'SES-2026-0318',
-        locationLabel: 'İzmir Klinik',
-        overallSummary:
-            'Önceki ölçümde sol ayakta yük dağılımı daha dengesiz görünmektedir. Yeni ölçümde genel konfor göstergelerinde iyileşme vardır.',
-        generalRiskNote:
-            'Uzun süre ayakta kalma durumunda destekli kullanım sürdürülmelidir.',
-        leftFoot: latest.leftFoot,
-        rightFoot: latest.rightFoot,
-        metrics: latest.metrics,
-        recommendations: latest.recommendations,
-        visuals: latest.visuals,
-      );
-
-      final older2 = CustomerAnalysisResult(
-        analysisDate: DateTime(2026, 2, 10),
-        sessionCode: 'SES-2026-0210',
-        locationLabel: 'İstanbul Merkez',
-        overallSummary:
-            'İlk ölçümlerde kemer desteği ihtiyacı daha belirgindir. Sonraki ölçümlerde yük dağılımında kısmi iyileşme görülmektedir.',
-        generalRiskNote:
-            'Destekleyici iç taban kullanımı önerilmeye devam edilmektedir.',
-        leftFoot: latest.leftFoot,
-        rightFoot: latest.rightFoot,
-        metrics: latest.metrics,
-        recommendations: latest.recommendations,
-        visuals: latest.visuals,
-      );
-
-      final current = CustomerAnalysisResult(
-        analysisDate: latest.analysisDate,
-        sessionCode: latest.sessionCode.isEmpty
-            ? 'SES-2026-0408'
-            : latest.sessionCode,
-        locationLabel: latest.locationLabel.isEmpty
-            ? 'OptiYou İzmir'
-            : latest.locationLabel,
-        overallSummary: latest.overallSummary,
-        generalRiskNote: latest.generalRiskNote,
-        leftFoot: latest.leftFoot,
-        rightFoot: latest.rightFoot,
-        metrics: latest.metrics,
-        recommendations: latest.recommendations,
-        visuals: latest.visuals,
       );
 
       if (!mounted) return;
 
       setState(() {
-        _results = [current, older1, older2];
+        _results = results;
         _selectedIndex = 0;
         _isLoading = false;
       });
@@ -255,6 +209,17 @@ class _CustomerAnalysisResultsScreenState
           ),
           const SizedBox(height: 18),
           _buildSectionCard(
+            title: 'Zamana Göre Skor Değişimi',
+            child: _buildTrendCharts(),
+          ),
+          const SizedBox(height: 18),
+          _buildSectionCard(
+            title: 'Ölçüm Değerlerinin Zaman İçindeki Değişimi',
+            child: _buildMeasurementTrendCharts(),
+          ),
+          const SizedBox(height: 18),
+          const SizedBox(height: 18),
+          _buildSectionCard(
             title: 'Genel Durum',
             child: _buildOverviewCard(),
           ),
@@ -340,6 +305,82 @@ class _CustomerAnalysisResultsScreenState
           ),
         );
       }),
+    );
+  }
+
+  Widget _buildMeasurementTrendCharts() {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: [
+        AnalysisScoreTrendChart(
+          title: 'Ayak Uzunluğu (mm)',
+          results: _results.where((e) => e.parsedReport != null).toList(),
+          leftScoreSelector: (result) =>
+              result.parsedReport?.leftFootLength ?? 0,
+          rightScoreSelector: (result) =>
+              result.parsedReport?.rightFootLength ?? 0,
+        ),
+        AnalysisScoreTrendChart(
+          title: 'Ayak Genişliği (mm)',
+          results: _results.where((e) => e.parsedReport != null).toList(),
+          leftScoreSelector: (result) =>
+              result.parsedReport?.leftFootWidth ?? 0,
+          rightScoreSelector: (result) =>
+              result.parsedReport?.rightFootWidth ?? 0,
+        ),
+        AnalysisScoreTrendChart(
+          title: 'Kemer Yüksekliği (mm)',
+          results: _results.where((e) => e.parsedReport != null).toList(),
+          leftScoreSelector: (result) =>
+              result.parsedReport?.leftArchHeight ?? 0,
+          rightScoreSelector: (result) =>
+              result.parsedReport?.rightArchHeight ?? 0,
+        ),
+        AnalysisScoreTrendChart(
+          title: 'Halluks Açısı (°)',
+          results: _results.where((e) => e.parsedReport != null).toList(),
+          leftScoreSelector: (result) =>
+              result.parsedReport?.leftHalluxAngle ?? 0,
+          rightScoreSelector: (result) =>
+              result.parsedReport?.rightHalluxAngle ?? 0,
+        ),
+        AnalysisScoreTrendChart(
+          title: 'Pronasyon Açısı (°)',
+          results: _results.where((e) => e.parsedReport != null).toList(),
+          leftScoreSelector: (result) =>
+              result.parsedReport?.leftPronatorAngle ?? 0,
+          rightScoreSelector: (result) =>
+              result.parsedReport?.rightPronatorAngle ?? 0,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTrendCharts() {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: [
+        AnalysisScoreTrendChart(
+          title: 'Basınç Konfor Skoru',
+          results: _results,
+          leftScoreSelector: (result) => result.leftFoot.pressureScore,
+          rightScoreSelector: (result) => result.rightFoot.pressureScore,
+        ),
+        AnalysisScoreTrendChart(
+          title: 'Stabilite Skoru',
+          results: _results,
+          leftScoreSelector: (result) => result.leftFoot.stabilityScore,
+          rightScoreSelector: (result) => result.rightFoot.stabilityScore,
+        ),
+        AnalysisScoreTrendChart(
+          title: 'Ark Desteği Skoru',
+          results: _results,
+          leftScoreSelector: (result) => result.leftFoot.archScore,
+          rightScoreSelector: (result) => result.rightFoot.archScore,
+        ),
+      ],
     );
   }
 
@@ -463,12 +504,6 @@ class _CustomerAnalysisResultsScreenState
           filePath: isLeft
               ? visuals.pronatorLeftImagePath
               : visuals.pronatorRightImagePath,
-          textAlign: textAlign,
-          contentAlignment: crossAlign,
-        ),
-        _fileTile(
-          title: isLeft ? 'Sol STL' : 'Sağ STL',
-          path: isLeft ? visuals.leftStlPath : visuals.rightStlPath,
           textAlign: textAlign,
           contentAlignment: crossAlign,
         ),

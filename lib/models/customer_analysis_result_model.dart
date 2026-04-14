@@ -1,3 +1,5 @@
+import 'package:oy_site/models/parsed_scan_report.dart';
+
 class CustomerFootSummary {
   final String side; // left / right
   final String footType;
@@ -55,6 +57,7 @@ class CustomerAnalysisResult {
   final List<CustomerAnalysisMetric> metrics;
   final List<CustomerRecommendationItem> recommendations;
   final CustomerAnalysisVisualSet visuals;
+  final ParsedScanReport? parsedReport;
 
   const CustomerAnalysisResult({
     required this.sessionCode,
@@ -67,6 +70,7 @@ class CustomerAnalysisResult {
     required this.metrics,
     required this.recommendations,
     required this.visuals,
+    this.parsedReport,
   });
 }
 
