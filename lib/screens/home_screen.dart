@@ -14,6 +14,9 @@ class _HomeScreenState extends State<HomeScreen> {
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _featuresKey = GlobalKey();
   final GlobalKey _aboutKey = GlobalKey();
+  final GlobalKey _servicesKey = GlobalKey();
+  final GlobalKey _productsKey = GlobalKey();
+  final GlobalKey _centersKey = GlobalKey();
 
   @override
   void dispose() {
@@ -62,7 +65,9 @@ class _HomeScreenState extends State<HomeScreen> {
           _Navbar(
             onLogin: _goToLogin,
             onRegister: _goToRegister,
-            onScrollToFeatures: () => _scrollTo(_featuresKey),
+            onScrollToServices: () => _scrollTo(_servicesKey),
+            onScrollToProducts: () => _scrollTo(_productsKey),
+            onScrollToCenters: () => _scrollTo(_centersKey),
             onScrollToAbout: () => _scrollTo(_aboutKey),
             isNarrow: isNarrow,
           ),
@@ -72,8 +77,28 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 children: [
                   _HeroSection(isNarrow: isNarrow, onGetStarted: _goToRegister),
-                  Container(key: _featuresKey, child: _FeaturesSection(isNarrow: isNarrow)),
-                  Container(key: _aboutKey, child: _AboutSection(isNarrow: isNarrow)),
+                  _ImpactStatsSection(isNarrow: isNarrow),
+                  _KimIcinSection(isNarrow: isNarrow),
+                  Container(
+                    key: _centersKey,
+                    child: _MeasurementCentersSection(isNarrow: isNarrow),
+                  ),
+                  Container(
+                    key: _featuresKey,
+                    child: _FeaturesSection(isNarrow: isNarrow),
+                  ),
+                  Container(
+                    key: _servicesKey,
+                    child: _ServicesSection(isNarrow: isNarrow),
+                  ),
+                  Container(
+                    key: _productsKey,
+                    child: _ProductsSection(isNarrow: isNarrow),
+                  ),
+                  Container(
+                    key: _aboutKey,
+                    child: _AboutSection(isNarrow: isNarrow),
+                  ),
                   _CtaSection(onGetStarted: _goToRegister, onLogin: _goToLogin),
                   const _Footer(),
                 ],
@@ -85,20 +110,23 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
-
 // ── Navbar ──────────────────────────────────────────────────────────────────
 
 class _Navbar extends StatelessWidget {
   final VoidCallback onLogin;
   final VoidCallback onRegister;
-  final VoidCallback onScrollToFeatures;
+  final VoidCallback onScrollToServices;
+  final VoidCallback onScrollToProducts;
+  final VoidCallback onScrollToCenters;
   final VoidCallback onScrollToAbout;
   final bool isNarrow;
 
   const _Navbar({
     required this.onLogin,
     required this.onRegister,
-    required this.onScrollToFeatures,
+    required this.onScrollToServices,
+    required this.onScrollToProducts,
+    required this.onScrollToCenters,
     required this.onScrollToAbout,
     required this.isNarrow,
   });
@@ -134,9 +162,7 @@ class _Navbar extends StatelessWidget {
                   height: 20,
                 ),
               ),
-
               const SizedBox(width: 20),
-
               Image.asset(
                 'assets/images/logo.png',
                 height: 50,
@@ -144,9 +170,11 @@ class _Navbar extends StatelessWidget {
             ],
           ),
           const Spacer(),
-          // Nav links (wide only)
-          if (!isNarrow) ...[  
-            _NavLink(label: 'Özellikler', onTap: onScrollToFeatures),
+
+          if (!isNarrow) ...[
+            _NavLink(label: 'Hizmetler', onTap: onScrollToServices),
+            _NavLink(label: 'Ürünler', onTap: onScrollToProducts),
+            _NavLink(label: 'Merkezler', onTap: onScrollToCenters),
             _NavLink(label: 'Hakkımızda', onTap: onScrollToAbout),
             const SizedBox(width: 16),
             OutlinedButton(
@@ -160,8 +188,10 @@ class _Navbar extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: const Text('Giriş Yap',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
+              child: const Text(
+                'Giriş Yap',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
             ),
             const SizedBox(width: 10),
             ElevatedButton(
@@ -176,51 +206,103 @@ class _Navbar extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: const Text('Kayıt Ol',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
+              child: const Text(
+                'Kayıt Ol',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
             ),
           ] else
-            // Hamburger menu (narrow)
             PopupMenuButton<String>(
-              icon: const Icon(Icons.menu, color: Color(0xFF1A2340), size: 26),
+              icon: const Icon(
+                Icons.menu,
+                color: Color(0xFF1A2340),
+                size: 26,
+              ),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+                borderRadius: BorderRadius.circular(12),
+              ),
               offset: const Offset(0, 52),
               onSelected: (value) {
                 switch (value) {
-                  case 'features':
-                    onScrollToFeatures();
+                  case 'services':
+                    onScrollToServices();
+                    break;
+                  case 'products':
+                    onScrollToProducts();
+                    break;
+                  case 'centers':
+                    onScrollToCenters();
+                    break;
                   case 'about':
                     onScrollToAbout();
+                    break;
                   case 'login':
                     onLogin();
+                    break;
                   case 'register':
                     onRegister();
+                    break;
                 }
               },
-              itemBuilder: (_) => [
-                const PopupMenuItem(
-                  value: 'features',
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  value: 'services',
                   child: Row(
                     children: [
-                      Icon(Icons.star_outline, size: 18, color: Colors.teal),
+                      Icon(
+                        Icons.design_services_outlined,
+                        size: 18,
+                        color: Colors.teal,
+                      ),
                       SizedBox(width: 10),
-                      Text('Özellikler'),
+                      Text('Hizmetler'),
                     ],
                   ),
                 ),
-                const PopupMenuItem(
+                PopupMenuItem(
+                  value: 'products',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.inventory_2_outlined,
+                        size: 18,
+                        color: Colors.teal,
+                      ),
+                      SizedBox(width: 10),
+                      Text('Ürünler'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'centers',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.location_on_outlined,
+                        size: 18,
+                        color: Colors.teal,
+                      ),
+                      SizedBox(width: 10),
+                      Text('Merkezler'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
                   value: 'about',
                   child: Row(
                     children: [
-                      Icon(Icons.info_outline, size: 18, color: Colors.teal),
+                      Icon(
+                        Icons.info_outline,
+                        size: 18,
+                        color: Colors.teal,
+                      ),
                       SizedBox(width: 10),
                       Text('Hakkımızda'),
                     ],
                   ),
                 ),
-                const PopupMenuDivider(),
-                const PopupMenuItem(
+                PopupMenuDivider(),
+                PopupMenuItem(
                   value: 'login',
                   child: Row(
                     children: [
@@ -230,12 +312,15 @@ class _Navbar extends StatelessWidget {
                     ],
                   ),
                 ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'register',
                   child: Row(
                     children: [
-                      Icon(Icons.person_add_outlined,
-                          size: 18, color: Colors.teal),
+                      Icon(
+                        Icons.person_add_outlined,
+                        size: 18,
+                        color: Colors.teal,
+                      ),
                       SizedBox(width: 10),
                       Text('Kayıt Ol'),
                     ],
@@ -254,7 +339,11 @@ class _Navbar extends StatelessWidget {
 class _NavLink extends StatefulWidget {
   final String label;
   final VoidCallback onTap;
-  const _NavLink({required this.label, required this.onTap});
+
+  const _NavLink({
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   State<_NavLink> createState() => _NavLinkState();
@@ -281,8 +370,7 @@ class _NavLinkState extends State<_NavLink> {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
-                  color:
-                      _hovered ? Colors.teal : const Color(0xFF3D4E6B),
+                  color: _hovered ? Colors.teal : const Color(0xFF3D4E6B),
                 ),
               ),
               const SizedBox(height: 3),
@@ -397,7 +485,7 @@ class _HeroSection extends StatelessWidget {
                 ),
               ),
               child: const Text(
-                'Ücretsiz Başla',
+                'Analiz Randevusu Alın',
                 style:
                     TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
@@ -971,6 +1059,738 @@ class _Footer extends StatelessWidget {
           Text(
             '© 2026 OptiYou. Tüm hakları saklıdır.',
             style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ServicesSection extends StatelessWidget {
+  final bool isNarrow;
+  const _ServicesSection({required this.isNarrow});
+
+  static const services = [
+    {
+      'icon': Icons.health_and_safety,
+      'title': 'Ayak Sağlığı Ekosistemi',
+      'desc': 'Dijital takip ve analiz sistemi ile ayak sağlığınızı sürekli izleyin.',
+    },
+    {
+      'icon': Icons.design_services,
+      'title': 'Kişisel Ortopedik Tasarım',
+      'desc': 'Kişiye özel ortopedik ürünler ve tabanlık tasarımları.',
+    },
+    {
+      'icon': Icons.sports_soccer,
+      'title': 'Sporcu Takip Sistemi',
+      'desc': 'Performans ve sakatlık riskini takip eden sistem.',
+    },
+    {
+      'icon': Icons.factory,
+      'title': 'Kurumsal Üretim (B2B)',
+      'desc': 'Toplu üretim ve takip sistemleri.',
+    },
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: Colors.white,
+      padding: EdgeInsets.symmetric(
+        horizontal: isNarrow ? 24 : 80,
+        vertical: 70,
+      ),
+      child: Column(
+        children: [
+          const Text(
+            'Hizmetlerimiz',
+            style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 40),
+          Wrap(
+            spacing: 20,
+            runSpacing: 20,
+            children: services.map((s) {
+              return _ServiceCard(
+                icon: s['icon'] as IconData,
+                title: s['title'] as String,
+                desc: s['desc'] as String,
+                isNarrow: isNarrow,
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ServiceCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String desc;
+  final bool isNarrow;
+
+  const _ServiceCard({
+    required this.icon,
+    required this.title,
+    required this.desc,
+    required this.isNarrow,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: isNarrow ? double.infinity : 260,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 40, color: Colors.teal),
+          const SizedBox(height: 12),
+          Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Text(desc, textAlign: TextAlign.center),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProductsSection extends StatelessWidget {
+  final bool isNarrow;
+  const _ProductsSection({required this.isNarrow});
+
+  static const products = [
+    {
+      'title': 'Kişisel Ortopedik İç Taban',
+    },
+    {
+      'title': 'Sporcu Tabanlığı',
+    },
+    {
+      'title': 'Yenileyici Sandalet',
+    },
+    {
+      'title': 'Kişisel Ayakkabı',
+    },
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: const Color(0xFFF7F9FB),
+      padding: EdgeInsets.symmetric(
+        horizontal: isNarrow ? 24 : 80,
+        vertical: 70,
+      ),
+      child: Column(
+        children: [
+          const Text(
+            'Ürünlerimiz',
+            style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 40),
+          Wrap(
+            spacing: 20,
+            runSpacing: 20,
+            children: products.map((p) {
+              return _ProductCard(
+                title: p['title']!,
+                isNarrow: isNarrow,
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProductCard extends StatelessWidget {
+  final String title;
+  final bool isNarrow;
+
+  const _ProductCard({
+    required this.title,
+    required this.isNarrow,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: isNarrow ? double.infinity : 260,
+      height: 200,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+          )
+        ],
+      ),
+      child: Center(
+        child: Text(
+          title,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+}
+
+class _ImpactStatsSection extends StatelessWidget {
+  final bool isNarrow;
+  const _ImpactStatsSection({required this.isNarrow});
+
+  static const stats = [
+    {
+      'value': '%67',
+      'title': 'Yanlış Ayakkabı Ebatı',
+      'desc':
+          'İnsanların önemli bir kısmı ayağına uygun olmayan ebatta ayakkabı kullanıyor.',
+    },
+    {
+      'value': '%30',
+      'title': 'Ağrılarda Azalma',
+      'desc':
+          'Kişisel iç tabanlık kullanımıyla ayak, bel ve eklem ağrılarında düşüş gözlemlenebilir.',
+    },
+    {
+      'value': '%40',
+      'title': 'Metatarsal Basınç Azalması',
+      'desc':
+          'Ayağın metatarsal bölgesindeki yük ve basınç anlamlı ölçüde azaltılabilir.',
+    },
+    {
+      'value': '%87',
+      'title': 'Kullanıcı Memnuniyeti',
+      'desc':
+          'Ortopedik iç taban kullanan bireylerde yüksek memnuniyet oranı görülmektedir.',
+    },
+    {
+      'value': '%10',
+      'title': 'Diz Rotasyonunda Azalma',
+      'desc':
+          'Diz eklemindeki yanal dönüş hareketi azaltılarak biyomekanik denge desteklenebilir.',
+    },
+    {
+      'value': '%12',
+      'title': 'İçe Dönmede Azalma',
+      'desc':
+          'Ayak bileği inversiyon momentinde azalma ile daha dengeli bir basış elde edilebilir.',
+    },
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: Colors.white,
+      padding: EdgeInsets.symmetric(
+        horizontal: isNarrow ? 24 : 80,
+        vertical: 70,
+      ),
+      child: Column(
+        children: [
+          const Text(
+            'Rakamlarla Etkimiz',
+            style: TextStyle(
+              fontSize: 30,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1A2340),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Ayak sağlığı, ortopedik destek ve kullanıcı deneyimine dair öne çıkan sonuçlar',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey.shade600,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 40),
+          Wrap(
+            spacing: 20,
+            runSpacing: 20,
+            alignment: WrapAlignment.center,
+            children: stats.map((item) {
+              return _ImpactStatCard(
+                value: item['value']!,
+                title: item['title']!,
+                desc: item['desc']!,
+                isNarrow: isNarrow,
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ImpactStatCard extends StatelessWidget {
+  final String value;
+  final String title;
+  final String desc;
+  final bool isNarrow;
+
+  const _ImpactStatCard({
+    required this.value,
+    required this.title,
+    required this.desc,
+    required this.isNarrow,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: isNarrow ? double.infinity : 300,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F9FB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.teal.withOpacity(0.10)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 34,
+              fontWeight: FontWeight.bold,
+              color: Colors.teal,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1A2340),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            desc,
+            style: TextStyle(
+              color: Colors.grey.shade600,
+              fontSize: 14,
+              height: 1.55,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _KimIcinSection extends StatelessWidget {
+  final bool isNarrow;
+  const _KimIcinSection({required this.isNarrow});
+
+  static const targets = [
+    {
+      'icon': Icons.child_care,
+      'title': 'Gelişim Çağındaki Çocuklar',
+      'desc': 'Ayak sağlığı gelişiminde destek isteyen çocuklar',
+      'items': [
+        'Düz taban / çukur taban eğilimleri',
+        'İçe veya dışa basma sorunları',
+        'Büyüme sürecinde ortopedik destek ihtiyacı',
+      ],
+    },
+    {
+      'icon': Icons.accessibility_new,
+      'title': 'Ortopedik Kullanım',
+      'desc': 'Yürüme ve basma sorunu yaşayan yetişkinler',
+      'items': [
+        'Düz / çukur taban',
+        'İçe basma',
+        'Diyabetik ayak',
+        'Topuk dikeni',
+        'Hallux valgus',
+      ],
+    },
+    {
+      'icon': Icons.engineering,
+      'title': 'Çalışanlar ve Emekçiler',
+      'desc': 'Ayakta uzun süre çalışan iş kolları',
+      'items': [
+        'Emek yoğun çalışanlar',
+        'Sağlık çalışanları',
+        'Öğretmenler',
+        'Fabrika işçileri',
+      ],
+    },
+    {
+      'icon': Icons.sports,
+      'title': 'Sporcular',
+      'desc': 'Performansını geliştirmek isteyen sporcular',
+      'items': [
+        'Bireysel sporcular',
+        'Takım sporcuları',
+      ],
+    },
+    {
+      'icon': Icons.favorite_border,
+      'title': 'Hayat Kalitesini Artırmak İsteyenler',
+      'desc': 'Daha konforlu ve sağlıklı bir basış hedefleyen bireyler',
+      'items': [
+        'Ayak, bel ve kas ağrısı yaşayan bireyler',
+        'Kilo problemi olan bireyler',
+        'Ayak sağlığını korumak isteyenler',
+        'Sağlıklı ve konforlu bir basış deneyimi isteyenler',
+      ],
+    },
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: const Color(0xFFF7F9FB),
+      padding: EdgeInsets.symmetric(
+        horizontal: isNarrow ? 24 : 80,
+        vertical: 70,
+      ),
+      child: Column(
+        children: [
+          const Text(
+            'Kimin İçin?',
+            style: TextStyle(
+              fontSize: 30,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1A2340),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'OptiYou çözümleri farklı yaş, ihtiyaç ve kullanım senaryolarına uygun olarak tasarlanır.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey.shade600,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 40),
+          Wrap(
+            spacing: 20,
+            runSpacing: 20,
+            alignment: WrapAlignment.center,
+            children: targets.map((item) {
+              return _TargetUserCard(
+                icon: item['icon'] as IconData,
+                title: item['title'] as String,
+                desc: item['desc'] as String,
+                items: item['items'] as List<String>,
+                isNarrow: isNarrow,
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TargetUserCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String desc;
+  final List<String> items;
+  final bool isNarrow;
+
+  const _TargetUserCard({
+    required this.icon,
+    required this.title,
+    required this.desc,
+    required this.items,
+    required this.isNarrow,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: isNarrow ? double.infinity : 320,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: Colors.teal.withOpacity(0.10),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: Colors.teal, size: 24),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1A2340),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            desc,
+            style: TextStyle(
+              color: Colors.grey.shade600,
+              fontSize: 14,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 14),
+          ...items.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 3),
+                    child: Icon(
+                      Icons.check_circle,
+                      size: 16,
+                      color: Colors.teal,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      item,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        color: Color(0xFF3D4E6B),
+                        height: 1.45,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MeasurementCentersSection extends StatelessWidget {
+  final bool isNarrow;
+  const _MeasurementCentersSection({required this.isNarrow});
+
+  static const centers = [
+    {
+      'title': 'CAST Cerrahpaşa Araştırma Simülasyon ve Tasarım Merkezi',
+      'subtitle': 'İstanbul Üniversitesi-Cerrahpaşa',
+      'city': 'İstanbul',
+      'address':
+          'Cerrahpaşa Yerleşkesi, O Blok, 2.Kat, Kocamustafapaşa Caddesi, No:53 Cerrahpaşa 34098 Fatih/İstanbul',
+      'icon': Icons.local_hospital_outlined,
+    },
+    {
+      'title': 'İzmir Tınaztepe Üniversitesi Dijital Üretim Laboratuvarı (DML)',
+      'subtitle': 'İzmir Tınaztepe Üniversitesi',
+      'city': 'İzmir',
+      'address':
+          'Aydoğdu, 1267/1 Sk No:4 C Blok, 35400 Buca/İzmir',
+      'icon': Icons.precision_manufacturing_outlined,
+    },
+    {
+      'title': 'Entertech İstanbul Teknokent Üniversite',
+      'subtitle': 'Entertech İstanbul Teknokent',
+      'city': 'İstanbul',
+      'address':
+          'Sarıgül Sk. No:37/1 İç Kapı No:97, 34320 Avcılar/İstanbul',
+      'icon': Icons.apartment_outlined,
+    },
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: Colors.white,
+      padding: EdgeInsets.symmetric(
+        horizontal: isNarrow ? 24 : 80,
+        vertical: 70,
+      ),
+      child: Column(
+        children: [
+          const Text(
+            'Ölçüm Merkezlerimiz',
+            style: TextStyle(
+              fontSize: 30,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1A2340),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Ayak analizi, ölçüm ve değerlendirme süreçlerimize farklı merkezlerimiz üzerinden erişebilirsiniz.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey.shade600,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 40),
+          Wrap(
+            spacing: 20,
+            runSpacing: 20,
+            alignment: WrapAlignment.center,
+            children: centers.map((center) {
+              return _MeasurementCenterCard(
+                title: center['title'] as String,
+                subtitle: center['subtitle'] as String,
+                city: center['city'] as String,
+                address: center['address'] as String,
+                icon: center['icon'] as IconData,
+                isNarrow: isNarrow,
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+class _MeasurementCenterCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final String city;
+  final String address;
+  final IconData icon;
+  final bool isNarrow;
+
+  const _MeasurementCenterCard({
+    required this.title,
+    required this.subtitle,
+    required this.city,
+    required this.address,
+    required this.icon,
+    required this.isNarrow,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: isNarrow ? double.infinity : 320,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F9FB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.teal.withOpacity(0.10)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: Colors.teal.withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: Colors.teal, size: 24),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.teal.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  city,
+                  style: const TextStyle(
+                    color: Colors.teal,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1A2340),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            style: TextStyle(
+              color: Colors.grey.shade700,
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.location_on_outlined,
+                size: 18,
+                color: Colors.grey.shade700,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  address,
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 14,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
