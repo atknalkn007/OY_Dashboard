@@ -2,23 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:oy_site/data/mock/mock_customer_analysis_repository.dart';
 import 'package:oy_site/models/app_user.dart';
 import 'package:oy_site/models/customer_analysis_result_model.dart';
+import 'package:oy_site/models/measurement_session.dart';
 import 'package:oy_site/screens/dashboard/analysis_results_view.dart';
 
-class CustomerAnalysisResultsScreen extends StatefulWidget {
+class SessionAnalysisResultsScreen extends StatefulWidget {
   final AppUser currentUser;
+  final MeasurementSession session;
 
-  const CustomerAnalysisResultsScreen({
+  const SessionAnalysisResultsScreen({
     super.key,
     required this.currentUser,
+    required this.session,
   });
 
   @override
-  State<CustomerAnalysisResultsScreen> createState() =>
-      _CustomerAnalysisResultsScreenState();
+  State<SessionAnalysisResultsScreen> createState() =>
+      _SessionAnalysisResultsScreenState();
 }
 
-class _CustomerAnalysisResultsScreenState
-    extends State<CustomerAnalysisResultsScreen> {
+class _SessionAnalysisResultsScreenState
+    extends State<SessionAnalysisResultsScreen> {
   final MockCustomerAnalysisRepository _repository =
       MockCustomerAnalysisRepository();
 
@@ -76,7 +79,7 @@ class _CustomerAnalysisResultsScreenState
     if (_errorMessage != null) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Analiz Sonuçlarım'),
+          title: const Text('Ayak Sağlığı Analiz Sonuçları'),
           backgroundColor: Colors.teal,
         ),
         body: Center(
@@ -90,12 +93,12 @@ class _CustomerAnalysisResultsScreenState
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Analiz Sonuçlarım'),
+        title: Text('Analiz Sonuçları - ${widget.session.sessionCode}'),
         backgroundColor: Colors.teal,
       ),
       body: AnalysisResultsView(
         currentUser: widget.currentUser,
-        pageTitle: 'Analiz Sonuçlarım',
+        pageTitle: 'Ayak Sağlığı Analiz Sonuçları',
         results: _results,
       ),
     );

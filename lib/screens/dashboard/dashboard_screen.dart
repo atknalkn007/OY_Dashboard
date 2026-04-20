@@ -14,10 +14,8 @@ import 'package:oy_site/screens/dashboard/corporate_reports_screen.dart';
 import '/widgets/sidebar.dart';
 import '/widgets/topbar.dart';
 import 'profile_screen.dart';
-import 'analysis_screen.dart';
 import 'orders_screen.dart';
 import 'store_screen.dart';
-import 'pressure_screen.dart';
 import 'support_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -53,12 +51,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return [
           PatientListScreen(currentUser: widget.currentUser, pressureRepository: widget.pressureRepository),        // 0
           SessionListScreen(currentUser: widget.currentUser, pressureRepository: widget.pressureRepository),        // 1
-          AnalysisScreen(currentUser: widget.currentUser),           // 2
           OrdersScreen(currentUser: widget.currentUser),             // 3
           SupportScreen(currentUser: widget.currentUser),            // 4
-          PressureScreen(                                            // 5
-            pressureRepository: widget.pressureRepository,
-          ),
           ProfileScreen(currentUser: widget.currentUser),            // 6
         ];
 

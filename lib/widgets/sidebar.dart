@@ -77,10 +77,8 @@ class Sidebar extends StatelessWidget {
         return const [
           _SidebarMenuItem(Icons.groups, "Müşteriler"),
           _SidebarMenuItem(Icons.fact_check, "Randevular"),
-          _SidebarMenuItem(Icons.analytics, "Ayak Analizi"),
           _SidebarMenuItem(Icons.shopping_bag, "Siparişler"),
           _SidebarMenuItem(Icons.help_outline, "Destek"),
-          _SidebarMenuItem(Icons.speed, "Basınç Ölçüm"),
           _SidebarMenuItem(Icons.person, "Profil"),
         ];
 

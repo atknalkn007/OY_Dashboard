@@ -8,6 +8,7 @@ import 'package:oy_site/screens/dashboard/order_create_screen.dart';
 import 'package:oy_site/screens/dashboard/orthotic_design_form_screen.dart';
 import 'package:oy_site/screens/dashboard/pressure_measurement_dialog.dart';
 import 'package:oy_site/screens/dashboard/scan_folder_upload_dialog.dart';
+import 'package:oy_site/screens/dashboard/session_analysis_results_screen.dart';
 
 class SessionDetailScreen extends StatefulWidget {
   final AppUser currentUser;
@@ -36,6 +37,14 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
     super.initState();
     _currentSession = widget.session;
   }
+
+  bool get _hasUploadedScanFolder =>
+      _currentSession.has3dScan || _scanFolderPath != null;
+
+  bool get _canOpenAnalysisResults =>
+      _currentSession.clinicalInfoCompleted &&
+      _hasUploadedScanFolder &&
+      _currentSession.hasPlantarCsv;
 
   String _formatDate(DateTime? date) {
     if (date == null) return '—';
@@ -135,9 +144,116 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
     );
   }
 
+  Widget _buildAnalysisResultsCard() {
+    final isEnabled = _canOpenAnalysisResults;
+
+    return Opacity(
+      opacity: isEnabled ? 1 : 0.62,
+      child: InkWell(
+        onTap: isEnabled ? _openAnalysisResults : null,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: isEnabled ? Colors.white : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isEnabled
+                  ? Colors.teal.withOpacity(0.20)
+                  : Colors.grey.shade300,
+            ),
+            boxShadow: isEnabled
+                ? const [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 6,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: isEnabled
+                      ? Colors.teal.withOpacity(0.12)
+                      : Colors.grey.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.analytics_outlined,
+                  color: isEnabled ? Colors.teal : Colors.grey,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Ayak Sağlığı Analiz Sonuçları',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: isEnabled
+                            ? const Color(0xFF1A2340)
+                            : Colors.grey.shade700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      isEnabled
+                          ? 'Ölçüm sonuçlarını görüntülemek için tıklayın'
+                          : 'Bu kartın aktif olması için ilk 3 ölçüm adımı tamamlanmalıdır',
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isEnabled
+                            ? Colors.green.withOpacity(0.12)
+                            : Colors.orange.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        isEnabled ? 'Aktif' : 'Kilidi Açılmadı',
+                        style: TextStyle(
+                          color: isEnabled
+                              ? Colors.green.shade700
+                              : Colors.orange.shade700,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Icon(
+                isEnabled ? Icons.arrow_forward_ios : Icons.lock_outline,
+                size: 16,
+                color: isEnabled ? Colors.black38 : Colors.grey,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   List<_SessionStepItem> _buildSessionSteps() {
-    final hasUploadedScanFolder =
-        _currentSession.has3dScan || _scanFolderPath != null;
+    final hasUploadedScanFolder = _hasUploadedScanFolder;
 
     return [
       _SessionStepItem(
@@ -383,6 +499,18 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
     }
   }
 
+  void _openAnalysisResults() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SessionAnalysisResultsScreen(
+          currentUser: widget.currentUser,
+          session: _currentSession,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final statusColor = _statusColor(_currentSession.effectiveStatus);
@@ -522,6 +650,8 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                               ],
                             ),
                           ),
+                          const SizedBox(height: 16),
+                          _buildAnalysisResultsCard(),
                           if (_scanFolderPath != null) ...[
                             const SizedBox(height: 16),
                             _buildSectionCard(
@@ -546,9 +676,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                                   ),
                                   const SizedBox(height: 10),
                                   if (_scanFolderFiles.isNotEmpty)
-                                    ..._scanFolderFiles
-                                        .take(6)
-                                        .map(
+                                    ..._scanFolderFiles.take(6).map(
                                           (fileName) => Padding(
                                             padding: const EdgeInsets.only(
                                               bottom: 6,
