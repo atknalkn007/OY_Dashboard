@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:oy_site/models/store_product_model.dart';
+import 'package:oy_site/models/store_measurement_summary_model.dart';
 import 'package:oy_site/screens/dashboard/store_screen.dart';
+
 import 'package:oy_site/services/payment/iyzico_checkout_service.dart';
 import 'package:oy_site/services/payment/payment_popup_handle.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -19,22 +22,29 @@ class StoreProductDetailScreen extends StatefulWidget {
       _StoreProductDetailScreenState();
 }
 
-class _StoreProductDetailScreenState extends State<StoreProductDetailScreen> {
-  final IyzicoCheckoutService _checkoutService = IyzicoCheckoutService();
+class _StoreProductDetailScreenState
+    extends State<StoreProductDetailScreen> {
+  final IyzicoCheckoutService _checkoutService =
+      IyzicoCheckoutService();
+
   bool _isStartingPayment = false;
 
   Future<void> _startPayment() async {
     if (_isStartingPayment) return;
 
     setState(() => _isStartingPayment = true);
+
     final popup = openPaymentPopup();
     var popupNavigated = false;
+
     try {
       final checkout = await _checkoutService.initializeCheckout(
         productId: widget.product.id,
       );
+
       final url = checkout.paymentPageUrl!;
       final uri = Uri.tryParse(url);
+
       if (uri == null) {
         throw Exception('Geçersiz ödeme URL\'i alındı.');
       }
@@ -43,7 +53,11 @@ class _StoreProductDetailScreenState extends State<StoreProductDetailScreen> {
         popup.navigate(url);
         popupNavigated = true;
       } else {
-        final opened = await launchUrl(uri, webOnlyWindowName: '_blank');
+        final opened = await launchUrl(
+          uri,
+          webOnlyWindowName: '_blank',
+        );
+
         if (!opened) {
           throw Exception('Ödeme sayfası açılamadı.');
         }
@@ -52,9 +66,13 @@ class _StoreProductDetailScreenState extends State<StoreProductDetailScreen> {
       if (popup != null && !popupNavigated) {
         popup.close();
       }
+
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ödeme başlatılamadı: $e')),
+        SnackBar(
+          content: Text('Ödeme başlatılamadı: $e'),
+        ),
       );
     } finally {
       if (mounted) {
@@ -82,7 +100,9 @@ class _StoreProductDetailScreenState extends State<StoreProductDetailScreen> {
                   measurement: widget.measurement,
                   compact: false,
                 ),
+
                 const SizedBox(height: 24),
+
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(22),
@@ -99,6 +119,7 @@ class _StoreProductDetailScreenState extends State<StoreProductDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Üst kısım
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -135,6 +156,7 @@ class _StoreProductDetailScreenState extends State<StoreProductDetailScreen> {
                             ],
                           ),
                           const SizedBox(width: 16),
+
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -169,26 +191,36 @@ class _StoreProductDetailScreenState extends State<StoreProductDetailScreen> {
                           ),
                         ],
                       ),
+
                       const SizedBox(height: 24),
+
                       _buildInfoSection(
                         title: 'Ürün Hakkında',
                         content: widget.product.fullDescription,
                       ),
+
                       const SizedBox(height: 18),
+
                       _buildInfoSection(
                         title: widget.product.usageTitle,
                         content: widget.product.usageDescription,
                       ),
+
                       const SizedBox(height: 18),
+
                       _buildInfoSection(
                         title: 'Neden Bu Ürün Öneriliyor?',
                         content: widget.product.whyRecommended,
                       ),
+
                       const SizedBox(height: 28),
+
+                      // SATIN AL BUTONU
                       Align(
                         alignment: Alignment.centerLeft,
                         child: ElevatedButton(
-                          onPressed: _isStartingPayment ? null : _startPayment,
+                          onPressed:
+                              _isStartingPayment ? null : _startPayment,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.teal,
                             foregroundColor: Colors.white,

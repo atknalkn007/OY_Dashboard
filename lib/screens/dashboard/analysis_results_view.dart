@@ -5,6 +5,8 @@ import 'package:oy_site/models/app_user.dart';
 import 'package:oy_site/models/customer_analysis_result_model.dart';
 import 'package:oy_site/widgets/analysis_score_trend_chart.dart';
 
+enum FootSelectionSide { left, right }
+
 class AnalysisResultsView extends StatefulWidget {
   final AppUser currentUser;
   final String pageTitle;
@@ -25,6 +27,8 @@ class AnalysisResultsView extends StatefulWidget {
 
 class _AnalysisResultsViewState extends State<AnalysisResultsView> {
   late int _selectedIndex;
+  FootSelectionSide _selectedFootSide = FootSelectionSide.left;
+  bool _showFootPanel = true;
 
   CustomerAnalysisResult? get _selectedResult {
     if (widget.results.isEmpty) return null;
@@ -122,38 +126,23 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
             child: _buildSessionCards(),
           ),
           const SizedBox(height: 18),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: _buildFootPanel(
-                  title: 'Sol Ayak',
-                  foot: selected.leftFoot,
-                  isRightAligned: false,
-                  visuals: _buildFootVisuals(
-                    isLeft: true,
-                    result: selected,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 18),
-              Expanded(
-                child: _buildFootPanel(
-                  title: 'Sağ Ayak',
-                  foot: selected.rightFoot,
-                  isRightAligned: true,
-                  visuals: _buildFootVisuals(
-                    isLeft: false,
-                    result: selected,
-                  ),
-                ),
-              ),
-            ],
+          _buildSectionCard(
+            title: 'Genel Analiz Sonuçları',
+            child: _buildCompactGeneralResults(selected),
           ),
           const SizedBox(height: 18),
           _buildSectionCard(
-            title: 'Genel Analiz Sonuçları',
-            child: _buildGeneralResultsPanel(selected),
+            title: 'Ayak Seçimi',
+            child: _buildFootSelector(),
+          ),
+          const SizedBox(height: 18),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 320),
+            curve: Curves.easeInOut,
+            alignment: Alignment.topCenter,
+            child: _showFootPanel
+                ? _buildSelectedFootPanel(selected)
+                : const SizedBox.shrink(),
           ),
           const SizedBox(height: 18),
           _buildSectionCard(
@@ -164,11 +153,6 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
           _buildSectionCard(
             title: 'Ölçüm Değerlerinin Zaman İçindeki Değişimi',
             child: _buildMeasurementTrendCharts(),
-          ),
-          const SizedBox(height: 18),
-          _buildSectionCard(
-            title: 'Genel Durum',
-            child: _buildOverviewCard(),
           ),
         ],
       ),
@@ -255,6 +239,317 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
     );
   }
 
+  Widget _buildFootSelector() {
+    return Row(
+      children: [
+        Expanded(
+          child: _footSelectionButton(
+            label: 'Sol Ayak',
+            icon: Icons.arrow_circle_left_outlined,
+            isSelected: _selectedFootSide == FootSelectionSide.left,
+            onTap: () {
+              setState(() {
+                _selectedFootSide = FootSelectionSide.left;
+                _showFootPanel = true;
+              });
+            },
+          ),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: _footSelectionButton(
+            label: 'Sağ Ayak',
+            icon: Icons.arrow_circle_right_outlined,
+            isSelected: _selectedFootSide == FootSelectionSide.right,
+            onTap: () {
+              setState(() {
+                _selectedFootSide = FootSelectionSide.right;
+                _showFootPanel = true;
+              });
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _footSelectionButton({
+    required String label,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.teal.withOpacity(0.10) : Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected ? Colors.teal : Colors.grey.shade300,
+            width: isSelected ? 1.4 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: isSelected ? Colors.teal : Colors.grey.shade700),
+            const SizedBox(width: 10),
+            Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+                color: isSelected ? Colors.teal : const Color(0xFF1A2340),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompactGeneralResults(CustomerAnalysisResult result) {
+    final metrics = result.metrics;
+
+    String metricValue(String label) {
+      final match = metrics.where((m) => m.label == label);
+      return match.isEmpty ? '—' : match.first.value;
+    }
+
+    return Column(
+      children: [
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            _compactTile(
+              title: 'Session',
+              value: result.sessionCode,
+              icon: Icons.tag,
+            ),
+            _compactTile(
+              title: 'Tarih',
+              value: _formatDate(result.analysisDate),
+              icon: Icons.calendar_today_outlined,
+            ),
+            _compactTile(
+              title: 'Yer',
+              value: result.locationLabel,
+              icon: Icons.location_on_outlined,
+            ),
+            _compactTile(
+              title: 'Denge',
+              value: metricValue('Sol / Sağ Denge'),
+              icon: Icons.balance,
+            ),
+            _compactTile(
+              title: 'Maks. Basınç',
+              value: metricValue('Maksimum Basınç Bölgesi'),
+              icon: Icons.my_location_outlined,
+            ),
+            _compactTile(
+              title: 'Risk',
+              value: metricValue('Gün Sonu Yorgunluk Riski'),
+              icon: Icons.warning_amber_outlined,
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.orange.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.orange.withOpacity(0.2)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Genel Özet',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                result.overallSummary,
+                style: const TextStyle(height: 1.4),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                result.generalRiskNote,
+                style: TextStyle(
+                  color: Colors.orange.shade900,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (result.recommendations.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: result.recommendations.map((item) {
+              return Container(
+                width: 260,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.teal.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.teal.withOpacity(0.18)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.check_circle_outline,
+                      color: Colors.teal,
+                      size: 18,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      item.title,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      item.description,
+                      style: TextStyle(
+                        color: Colors.grey[700],
+                        height: 1.35,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildSelectedFootPanel(CustomerAnalysisResult result) {
+    final isLeft = _selectedFootSide == FootSelectionSide.left;
+    final foot = isLeft ? result.leftFoot : result.rightFoot;
+    final title = isLeft ? 'Sol Ayak Detayı' : 'Sağ Ayak Detayı';
+    final textAlign = isLeft ? TextAlign.left : TextAlign.right;
+    final crossAlign =
+        isLeft ? CrossAxisAlignment.start : CrossAxisAlignment.end;
+
+    return _buildSectionCard(
+      title: title,
+      child: Column(
+        crossAxisAlignment: crossAlign,
+        children: [
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            alignment: isLeft ? WrapAlignment.start : WrapAlignment.end,
+            children: [
+              _scoreTile(
+                title: 'Basınç Konfor Skoru',
+                score: foot.pressureScore,
+                textAlign: textAlign,
+                contentAlignment: crossAlign,
+              ),
+              _scoreTile(
+                title: 'Stabilite Skoru',
+                score: foot.stabilityScore,
+                textAlign: textAlign,
+                contentAlignment: crossAlign,
+              ),
+              _scoreTile(
+                title: 'Ark Desteği Skoru',
+                score: foot.archScore,
+                textAlign: textAlign,
+                contentAlignment: crossAlign,
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          _buildInfoGrid(
+            foot: foot,
+            textAlign: textAlign,
+            crossAlign: crossAlign,
+          ),
+          const SizedBox(height: 18),
+          _buildFootVisuals(
+            isLeft: isLeft,
+            result: result,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoGrid({
+    required CustomerFootSummary foot,
+    required TextAlign textAlign,
+    required CrossAxisAlignment crossAlign,
+  }) {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      alignment: textAlign == TextAlign.left
+          ? WrapAlignment.start
+          : WrapAlignment.end,
+      children: [
+        _infoBox('Ayak Tipi', foot.footType, textAlign, crossAlign),
+        _infoBox('Basınç Özeti', foot.pressureSummary, textAlign, crossAlign),
+        _infoBox('Denge Özeti', foot.balanceSummary, textAlign, crossAlign),
+        _infoBox('Kemer Desteği', foot.archSupportNeed, textAlign, crossAlign),
+        _infoBox('Ana Bulgular', foot.mainFinding, textAlign, crossAlign),
+      ],
+    );
+  }
+
+  Widget _infoBox(
+    String label,
+    String value,
+    TextAlign textAlign,
+    CrossAxisAlignment crossAlign,
+  ) {
+    return Container(
+      width: 220,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: crossAlign,
+        children: [
+          Text(
+            label,
+            textAlign: textAlign,
+            style: TextStyle(
+              color: Colors.grey[700],
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            textAlign: textAlign,
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              height: 1.3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMeasurementTrendCharts() {
     final parsedResults =
         widget.results.where((e) => e.parsedReport != null).toList();
@@ -334,84 +629,6 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
     );
   }
 
-  Widget _buildFootPanel({
-    required String title,
-    required CustomerFootSummary foot,
-    required bool isRightAligned,
-    required Widget visuals,
-  }) {
-    final textAlign = isRightAligned ? TextAlign.right : TextAlign.left;
-    final crossAlign = isRightAligned
-        ? CrossAxisAlignment.end
-        : CrossAxisAlignment.start;
-
-    return _buildSectionCard(
-      title: title,
-      child: Column(
-        crossAxisAlignment: crossAlign,
-        children: [
-          _infoLine(
-            'Ayak Tipi',
-            foot.footType,
-            textAlign: textAlign,
-            crossAxisAlignment: crossAlign,
-          ),
-          const SizedBox(height: 10),
-          _infoLine(
-            'Basınç Özeti',
-            foot.pressureSummary,
-            textAlign: textAlign,
-            crossAxisAlignment: crossAlign,
-          ),
-          const SizedBox(height: 10),
-          _infoLine(
-            'Denge Özeti',
-            foot.balanceSummary,
-            textAlign: textAlign,
-            crossAxisAlignment: crossAlign,
-          ),
-          const SizedBox(height: 10),
-          _infoLine(
-            'Kemer Desteği',
-            foot.archSupportNeed,
-            textAlign: textAlign,
-            crossAxisAlignment: crossAlign,
-          ),
-          const SizedBox(height: 10),
-          _infoLine(
-            'Ana Bulgular',
-            foot.mainFinding,
-            textAlign: textAlign,
-            crossAxisAlignment: crossAlign,
-          ),
-          const SizedBox(height: 16),
-          _scoreTile(
-            title: 'Basınç Konfor Skoru',
-            score: foot.pressureScore,
-            textAlign: textAlign,
-            contentAlignment: crossAlign,
-          ),
-          const SizedBox(height: 10),
-          _scoreTile(
-            title: 'Stabilite Skoru',
-            score: foot.stabilityScore,
-            textAlign: textAlign,
-            contentAlignment: crossAlign,
-          ),
-          const SizedBox(height: 10),
-          _scoreTile(
-            title: 'Ark Desteği Skoru',
-            score: foot.archScore,
-            textAlign: textAlign,
-            contentAlignment: crossAlign,
-          ),
-          const SizedBox(height: 16),
-          visuals,
-        ],
-      ),
-    );
-  }
-
   Widget _buildFootVisuals({
     required bool isLeft,
     required CustomerAnalysisResult result,
@@ -459,218 +676,29 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
     );
   }
 
-  Widget _buildGeneralResultsPanel(CustomerAnalysisResult result) {
-    final metrics = result.metrics;
-
-    String metricValue(String label) {
-      final match = metrics.where((m) => m.label == label);
-      return match.isEmpty ? '—' : match.first.value;
-    }
-
-    return Column(
-      children: [
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          alignment: WrapAlignment.center,
-          children: [
-            _centerTile(
-              title: 'Session ID',
-              value: result.sessionCode,
-              icon: Icons.tag,
-            ),
-            _centerTile(
-              title: 'Tarih',
-              value: _formatDate(result.analysisDate),
-              icon: Icons.calendar_today_outlined,
-            ),
-            _centerTile(
-              title: 'Yer',
-              value: result.locationLabel,
-              icon: Icons.location_on_outlined,
-            ),
-            _centerTile(
-              title: 'Denge',
-              value: metricValue('Sol / Sağ Denge'),
-              icon: Icons.balance,
-            ),
-            _centerTile(
-              title: 'Maks. Basınç',
-              value: metricValue('Maksimum Basınç Bölgesi'),
-              icon: Icons.my_location_outlined,
-            ),
-            _centerTile(
-              title: 'Risk',
-              value: metricValue('Gün Sonu Yorgunluk Riski'),
-              icon: Icons.warning_amber_outlined,
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.orange.withOpacity(0.08),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.orange.withOpacity(0.2)),
-          ),
-          child: Column(
-            children: [
-              const Text(
-                'Genel Özet',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                result.overallSummary,
-                textAlign: TextAlign.center,
-                style: const TextStyle(height: 1.4),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                result.generalRiskNote,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.orange.shade900,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (result.recommendations.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            alignment: WrapAlignment.center,
-            children: result.recommendations.map((item) {
-              return Container(
-                width: 300,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.teal.withOpacity(0.06),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.teal.withOpacity(0.18)),
-                ),
-                child: Column(
-                  children: [
-                    const Icon(
-                      Icons.check_circle_outline,
-                      color: Colors.teal,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      item.title,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      item.description,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.grey[700],
-                        height: 1.35,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildOverviewCard() {
-    final latest = widget.results.first;
-
-    return Column(
-      children: [
-        const Text(
-          'Genel Durum',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Toplam ${widget.results.length} ölçüm kaydınız var. En güncel ölçüm ${latest.sessionCode} ve tarihi ${_formatDate(latest.analysisDate)}.',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: Colors.grey[700],
-            height: 1.4,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _infoLine(
-    String label,
-    String value, {
-    required TextAlign textAlign,
-    required CrossAxisAlignment crossAxisAlignment,
-  }) {
-    return Column(
-      crossAxisAlignment: crossAxisAlignment,
-      children: [
-        Text(
-          label,
-          textAlign: textAlign,
-          style: TextStyle(
-            color: Colors.grey[700],
-            fontSize: 12,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          textAlign: textAlign,
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            height: 1.3,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _centerTile({
+  Widget _compactTile({
     required String title,
     required String value,
     required IconData icon,
   }) {
     return Container(
-      width: 170,
-      padding: const EdgeInsets.all(14),
+      width: 150,
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade300),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Icon(icon, size: 18, color: Colors.teal),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             title,
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.grey[700],
-              fontSize: 12,
+              fontSize: 11,
             ),
           ),
           const SizedBox(height: 4),
@@ -681,7 +709,7 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               fontWeight: FontWeight.bold,
-              fontSize: 14,
+              fontSize: 13,
               height: 1.3,
             ),
           ),

@@ -14,6 +14,9 @@ import 'package:oy_site/screens/dashboard/corporate_reports_screen.dart';
 import '/widgets/sidebar.dart';
 import '/widgets/topbar.dart';
 import 'profile_screen.dart';
+import 'customer_profile_screen.dart';
+import 'expert_profile_screen.dart';
+import 'corporate_profile_screen.dart';
 import 'orders_screen.dart';
 import 'store_screen.dart';
 import 'support_screen.dart';
@@ -53,7 +56,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           SessionListScreen(currentUser: widget.currentUser, pressureRepository: widget.pressureRepository),        // 1
           OrdersScreen(currentUser: widget.currentUser),             // 3
           SupportScreen(currentUser: widget.currentUser),            // 4
-          ProfileScreen(currentUser: widget.currentUser),            // 6
+          ExpertProfileScreen(currentUser: widget.currentUser),           // 6
         ];
 
       // 👤 CUSTOMER
@@ -64,7 +67,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           OrdersScreen(currentUser: widget.currentUser),             // 2
           StoreScreen(currentUserEmail: widget.currentUser.email),   // 3
           SupportScreen(currentUser: widget.currentUser),            // 4
-          ProfileScreen(currentUser: widget.currentUser),            // 5
+          CustomerProfileScreen(currentUser: widget.currentUser),           // 5
         ];
       // 🏭 CORPORATE
       case RoleCodes.corporate:
@@ -74,7 +77,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           CorporateTrendsScreen(currentUser: widget.currentUser),
           CorporateEmployeesScreen(currentUser: widget.currentUser),
           CorporateReportsScreen(currentUser: widget.currentUser),
-          ProfileScreen(currentUser: widget.currentUser),
+          CorporateProfileScreen(currentUser: widget.currentUser),
         ];
       // 🏭 OPTIYOU TEAM
       case RoleCodes.optiYouTeam:

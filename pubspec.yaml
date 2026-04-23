@@ -43,6 +43,7 @@ flutter:
     - assets/images/branding/
     - assets/images/services/
     - assets/images/products/
+    - assets/images/addons/
     - assets/mock_data/
     - assets/scans/
     - assets/Results1.csv
