@@ -21,6 +21,72 @@ class AnalysisScoreTrendChart extends StatelessWidget {
         '${date.month.toString().padLeft(2, '0')}';
   }
 
+  List<double> _collectValidValues(List<CustomerAnalysisResult> sortedResults) {
+    return [
+      ...sortedResults.map(leftScoreSelector),
+      ...sortedResults.map(rightScoreSelector),
+    ].where((value) => value > 0).toList();
+  }
+
+  double _minValue(List<double> values) {
+    return values.reduce((a, b) => a < b ? a : b);
+  }
+
+  double _maxValue(List<double> values) {
+    return values.reduce((a, b) => a > b ? a : b);
+  }
+
+  double _calculateMinY(List<double> values) {
+    if (values.isEmpty) return 0;
+
+    final minValue = _minValue(values);
+    final maxValue = _maxValue(values);
+    final range = maxValue - minValue;
+
+    if (range == 0) {
+      return (minValue - _singleValuePadding(minValue))
+          .clamp(0, double.infinity)
+          .toDouble();
+    }
+
+    final padding = range * 0.25;
+    return (minValue - padding).clamp(0, double.infinity).toDouble();
+  }
+
+  double _calculateMaxY(List<double> values) {
+    if (values.isEmpty) return 100;
+
+    final minValue = _minValue(values);
+    final maxValue = _maxValue(values);
+    final range = maxValue - minValue;
+
+    if (range == 0) {
+      return maxValue + _singleValuePadding(maxValue);
+    }
+
+    final padding = range * 0.25;
+    return maxValue + padding;
+  }
+
+  double _singleValuePadding(double value) {
+    if (value <= 10) return 2;
+    if (value <= 30) return 5;
+    if (value <= 100) return 10;
+    return value * 0.1;
+  }
+
+  double _calculateInterval(double minY, double maxY) {
+    final range = maxY - minY;
+
+    if (range <= 5) return 1;
+    if (range <= 10) return 2;
+    if (range <= 25) return 5;
+    if (range <= 50) return 10;
+    if (range <= 100) return 20;
+
+    return (range / 5).ceilToDouble();
+  }
+
   @override
   Widget build(BuildContext context) {
     final sortedResults = [...results]
@@ -37,6 +103,11 @@ class AnalysisScoreTrendChart extends StatelessWidget {
         FlSpot(i.toDouble(), rightScoreSelector(sortedResults[i])),
       );
     }
+
+    final validValues = _collectValidValues(sortedResults);
+    final minY = _calculateMinY(validValues);
+    final maxY = _calculateMaxY(validValues);
+    final interval = _calculateInterval(minY, maxY);
 
     return Container(
       width: 340,
@@ -69,12 +140,12 @@ class AnalysisScoreTrendChart extends StatelessWidget {
             height: 220,
             child: LineChart(
               LineChartData(
-                minY: 0,
-                maxY: 100,
+                minY: minY,
+                maxY: maxY,
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
-                  horizontalInterval: 20,
+                  horizontalInterval: interval,
                 ),
                 borderData: FlBorderData(show: false),
                 titlesData: FlTitlesData(
@@ -87,11 +158,11 @@ class AnalysisScoreTrendChart extends StatelessWidget {
                   leftTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
-                      reservedSize: 30,
-                      interval: 20,
+                      reservedSize: 36,
+                      interval: interval,
                       getTitlesWidget: (value, meta) {
                         return Text(
-                          value.toInt().toString(),
+                          _formatAxisValue(value),
                           style: const TextStyle(fontSize: 11),
                         );
                       },
@@ -101,9 +172,13 @@ class AnalysisScoreTrendChart extends StatelessWidget {
                     sideTitles: SideTitles(
                       showTitles: true,
                       reservedSize: 28,
+                      interval: 1,
                       getTitlesWidget: (value, meta) {
                         final index = value.toInt();
-                        if (index < 0 || index >= sortedResults.length) {
+
+                        if (value % 1 != 0 ||
+                            index < 0 ||
+                            index >= sortedResults.length) {
                           return const SizedBox.shrink();
                         }
 
@@ -142,6 +217,12 @@ class AnalysisScoreTrendChart extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _formatAxisValue(double value) {
+    if (value.abs() >= 100) return value.toStringAsFixed(0);
+    if (value.abs() >= 10) return value.toStringAsFixed(1);
+    return value.toStringAsFixed(1);
   }
 
   Widget _buildLegendDot(String label, Color color) {

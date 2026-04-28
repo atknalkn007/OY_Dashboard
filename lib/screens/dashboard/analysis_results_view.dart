@@ -127,7 +127,7 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
           ),
           const SizedBox(height: 18),
           _buildSectionCard(
-            title: 'Genel Analiz Sonuçları',
+            title: 'Analiz Bilgileri',
             child: _buildCompactGeneralResults(selected),
           ),
           const SizedBox(height: 18),
@@ -321,6 +321,7 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
     }
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Wrap(
           spacing: 10,
@@ -359,37 +360,45 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
           ],
         ),
         const SizedBox(height: 14),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.orange.withOpacity(0.08),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.orange.withOpacity(0.2)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Genel Özet',
-                style: TextStyle(fontWeight: FontWeight.bold),
+
+        Align(
+          alignment: Alignment.centerLeft,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 620),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.orange.withOpacity(0.2)),
               ),
-              const SizedBox(height: 8),
-              Text(
-                result.overallSummary,
-                style: const TextStyle(height: 1.4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Genel Özet',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    result.overallSummary,
+                    style: const TextStyle(height: 1.4),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    result.generalRiskNote,
+                    style: TextStyle(
+                      color: Colors.orange.shade900,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                result.generalRiskNote,
-                style: TextStyle(
-                  color: Colors.orange.shade900,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
+
         if (result.recommendations.isNotEmpty) ...[
           const SizedBox(height: 14),
           Wrap(
@@ -554,54 +563,80 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
     final parsedResults =
         widget.results.where((e) => e.parsedReport != null).toList();
 
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
+    if (parsedResults.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: Text(
+          'Bu bölüm için henüz ölçüm raporu verisi bulunmuyor.',
+          style: TextStyle(
+            color: Colors.grey[700],
+            height: 1.4,
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AnalysisScoreTrendChart(
-          title: 'Ayak Uzunluğu (mm)',
-          results: parsedResults,
-          leftScoreSelector: (result) =>
-              result.parsedReport?.leftFootLength ?? 0,
-          rightScoreSelector: (result) =>
-              result.parsedReport?.rightFootLength ?? 0,
+        Text(
+          'Biyomekanik Göstergeler',
+          style: TextStyle(
+            color: Colors.grey[800],
+            fontWeight: FontWeight.bold,
+            fontSize: 15,
+          ),
         ),
-        AnalysisScoreTrendChart(
-          title: 'Ayak Genişliği (mm)',
-          results: parsedResults,
-          leftScoreSelector: (result) =>
-              result.parsedReport?.leftFootWidth ?? 0,
-          rightScoreSelector: (result) =>
-              result.parsedReport?.rightFootWidth ?? 0,
+        const SizedBox(height: 6),
+        Text(
+          'Zamana göre değişimi takip edilmesi anlamlı olan ölçüm değerleri gösterilir.',
+          style: TextStyle(
+            color: Colors.grey[600],
+            fontSize: 13,
+            height: 1.4,
+          ),
         ),
-        AnalysisScoreTrendChart(
-          title: 'Kemer Yüksekliği (mm)',
-          results: parsedResults,
-          leftScoreSelector: (result) =>
-              result.parsedReport?.leftArchHeight ?? 0,
-          rightScoreSelector: (result) =>
-              result.parsedReport?.rightArchHeight ?? 0,
-        ),
-        AnalysisScoreTrendChart(
-          title: 'Halluks Açısı (°)',
-          results: parsedResults,
-          leftScoreSelector: (result) =>
-              result.parsedReport?.leftHalluxAngle ?? 0,
-          rightScoreSelector: (result) =>
-              result.parsedReport?.rightHalluxAngle ?? 0,
-        ),
-        AnalysisScoreTrendChart(
-          title: 'Pronasyon Açısı (°)',
-          results: parsedResults,
-          leftScoreSelector: (result) =>
-              result.parsedReport?.leftPronatorAngle ?? 0,
-          rightScoreSelector: (result) =>
-              result.parsedReport?.rightPronatorAngle ?? 0,
+        const SizedBox(height: 14),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            AnalysisScoreTrendChart(
+              title: 'Kemer Yüksekliği (mm)',
+              results: parsedResults,
+              leftScoreSelector: (result) =>
+                  result.parsedReport?.leftArchHeight ?? 0,
+              rightScoreSelector: (result) =>
+                  result.parsedReport?.rightArchHeight ?? 0,
+            ),
+            AnalysisScoreTrendChart(
+              title: 'Halluks Açısı (°)',
+              results: parsedResults,
+              leftScoreSelector: (result) =>
+                  result.parsedReport?.leftHalluxAngle ?? 0,
+              rightScoreSelector: (result) =>
+                  result.parsedReport?.rightHalluxAngle ?? 0,
+            ),
+            AnalysisScoreTrendChart(
+              title: 'Pronasyon Açısı (°)',
+              results: parsedResults,
+              leftScoreSelector: (result) =>
+                  result.parsedReport?.leftPronatorAngle ?? 0,
+              rightScoreSelector: (result) =>
+                  result.parsedReport?.rightPronatorAngle ?? 0,
+            ),
+          ],
         ),
       ],
     );
   }
-
+  
   Widget _buildTrendCharts() {
     return Wrap(
       spacing: 12,
