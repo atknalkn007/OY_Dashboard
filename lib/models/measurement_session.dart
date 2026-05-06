@@ -15,7 +15,6 @@ class MeasurementSession {
   final bool hasInsolePhoto;
   final bool orderCreated;
 
-  // UI workflow için geçici alanlar
   final bool clinicalInfoCompleted;
   final bool designFormCompleted;
 
@@ -124,7 +123,8 @@ class MeasurementSession {
       orderCreated: orderCreated ?? this.orderCreated,
       clinicalInfoCompleted:
           clinicalInfoCompleted ?? this.clinicalInfoCompleted,
-      designFormCompleted: designFormCompleted ?? this.designFormCompleted,
+      designFormCompleted:
+          designFormCompleted ?? this.designFormCompleted,
       completedAt: completedAt ?? this.completedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -133,21 +133,23 @@ class MeasurementSession {
 
   factory MeasurementSession.fromMap(Map<String, dynamic> map) {
     return MeasurementSession(
-      sessionId: map['session_id'] as int?,
-      clinicId: map['clinic_id'] as int? ?? 0,
-      patientId: map['patient_id'] as int? ?? 0,
-      expertUserId: map['expert_user_id'] as int? ?? 0,
-      assignedOptityouUserId: map['assigned_optityou_user_id'] as int?,
-      sessionCode: map['session_code'] as String? ?? '',
+      sessionId: _toInt(map['id'] ?? map['session_id']),
+      clinicId: _toInt(map['clinic_id']) ?? 0,
+      patientId: _toInt(map['patient_id']) ?? 0,
+      expertUserId: _toInt(map['expert_user_id']) ?? 0,
+      assignedOptityouUserId: _toInt(map['assigned_optityou_user_id']),
+      sessionCode: map['session_code']?.toString() ?? '',
       sessionDate: _parseDate(map['session_date']) ?? DateTime.now(),
       sessionTime: map['session_time']?.toString(),
-      status: map['status'] as String? ?? SessionStatuses.draft,
+      status: map['status']?.toString() ?? SessionStatuses.draft,
       has3dScan: map['has_3d_scan'] as bool? ?? false,
       hasPlantarCsv: map['has_plantar_csv'] as bool? ?? false,
       hasInsolePhoto: map['has_insole_photo'] as bool? ?? false,
       orderCreated: map['order_created'] as bool? ?? false,
-      clinicalInfoCompleted: map['clinical_info_completed'] as bool? ?? false,
-      designFormCompleted: map['design_form_completed'] as bool? ?? false,
+      clinicalInfoCompleted:
+          map['clinical_info_completed'] as bool? ?? false,
+      designFormCompleted:
+          map['design_form_completed'] as bool? ?? false,
       completedAt: _parseDate(map['completed_at']),
       createdAt: _parseDate(map['created_at']),
       updatedAt: _parseDate(map['updated_at']),
@@ -156,7 +158,7 @@ class MeasurementSession {
 
   Map<String, dynamic> toMap() {
     return {
-      'session_id': sessionId,
+      if (sessionId != null) 'id': sessionId,
       'clinic_id': clinicId,
       'patient_id': patientId,
       'expert_user_id': expertUserId,
@@ -177,10 +179,50 @@ class MeasurementSession {
     };
   }
 
+  Map<String, dynamic> toInsertMap() {
+    return {
+      'clinic_id': clinicId,
+      'patient_id': patientId,
+      'expert_user_id': expertUserId,
+      'assigned_optityou_user_id': assignedOptityouUserId,
+      'session_code': sessionCode,
+      'session_date': sessionDate.toIso8601String(),
+      'session_time': sessionTime,
+      'status': status,
+      'has_3d_scan': has3dScan,
+      'has_plantar_csv': hasPlantarCsv,
+      'has_insole_photo': hasInsolePhoto,
+      'order_created': orderCreated,
+      'clinical_info_completed': clinicalInfoCompleted,
+      'design_form_completed': designFormCompleted,
+      'completed_at': completedAt?.toIso8601String(),
+    };
+  }
+
+  Map<String, dynamic> toUpdateMap() {
+    return {
+      'status': status,
+      'has_3d_scan': has3dScan,
+      'has_plantar_csv': hasPlantarCsv,
+      'has_insole_photo': hasInsolePhoto,
+      'order_created': orderCreated,
+      'clinical_info_completed': clinicalInfoCompleted,
+      'design_form_completed': designFormCompleted,
+      'completed_at': completedAt?.toIso8601String(),
+    };
+  }
+
   static DateTime? _parseDate(dynamic value) {
     if (value == null) return null;
     if (value is DateTime) return value;
     return DateTime.tryParse(value.toString());
+  }
+
+  static int? _toInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString());
   }
 }
 

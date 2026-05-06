@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:oy_site/models/app_user.dart';
 import 'package:oy_site/models/patient.dart';
+import 'package:oy_site/data/repositories/supabase_patient_repository.dart';
 
 class PatientCreateScreen extends StatefulWidget {
   final AppUser currentUser;
@@ -22,6 +23,8 @@ class _PatientCreateScreenState extends State<PatientCreateScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
+  final SupabasePatientRepository _patientRepository =
+      SupabasePatientRepository();
 
   DateTime? _birthDate;
   String? _selectedGender;
@@ -72,37 +75,59 @@ class _PatientCreateScreenState extends State<PatientCreateScreen> {
       _isSaving = true;
     });
 
-    await Future.delayed(const Duration(milliseconds: 300));
+    try {
+      final patient = Patient(
+        patientId: null,
+        clinicId: widget.currentUser.clinicId,
+        createdByUserId: widget.currentUser.userId,
+        patientCode: _generatePatientCode(),
+        firstName: _firstNameController.text.trim(),
+        lastName: _lastNameController.text.trim(),
+        email: _emailController.text.trim().isEmpty
+            ? null
+            : _emailController.text.trim(),
+        birthDate: _birthDate,
+        gender: _selectedGender,
+        phone: _phoneController.text.trim().isEmpty
+            ? null
+            : _phoneController.text.trim(),
+        notes: _notesController.text.trim().isEmpty
+            ? null
+            : _notesController.text.trim(),
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
 
-    final patient = Patient(
-      patientId: DateTime.now().millisecondsSinceEpoch,
-      clinicId: widget.currentUser.clinicId,
-      createdByUserId: widget.currentUser.userId,
-      patientCode: _generatePatientCode(),
-      firstName: _firstNameController.text.trim(),
-      lastName: _lastNameController.text.trim(),
-      email: _emailController.text.trim().isEmpty
-          ? null
-          : _emailController.text.trim(),
-      birthDate: _birthDate,
-      gender: _selectedGender,
-      phone: _phoneController.text.trim().isEmpty
-          ? null
-          : _phoneController.text.trim(),
-      notes: _notesController.text.trim().isEmpty
-          ? null
-          : _notesController.text.trim(),
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
+      final savedPatient = await _patientRepository.createPatient(patient);
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    setState(() {
-      _isSaving = false;
-    });
+      setState(() {
+        _isSaving = false;
+      });
 
-    Navigator.pop(context, patient);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Hasta kaydı başarıyla oluşturuldu.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      Navigator.pop(context, savedPatient);
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isSaving = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Hasta kaydı oluşturulamadı: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override

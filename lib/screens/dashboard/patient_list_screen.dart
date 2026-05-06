@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:oy_site/data/mock/mock_patient_repository.dart';
+import 'package:oy_site/data/repositories/supabase_patient_repository.dart';
 import 'package:oy_site/models/app_user.dart';
 import 'package:oy_site/models/patient.dart';
-import 'package:oy_site/screens/dashboard/patient_detail_screen.dart';
 import 'package:oy_site/screens/dashboard/patient_create_screen.dart';
+import 'package:oy_site/screens/dashboard/patient_detail_screen.dart';
 
 class PatientListScreen extends StatefulWidget {
   final AppUser currentUser;
@@ -20,7 +20,9 @@ class PatientListScreen extends StatefulWidget {
 }
 
 class _PatientListScreenState extends State<PatientListScreen> {
-  final MockPatientRepository _patientRepository = MockPatientRepository();
+  final SupabasePatientRepository _patientRepository =
+      SupabasePatientRepository();
+
   final TextEditingController _searchController = TextEditingController();
 
   List<Patient> _allPatients = [];
@@ -48,7 +50,15 @@ class _PatientListScreenState extends State<PatientListScreen> {
     });
 
     try {
-      final patients = await _patientRepository.getPatients();
+      final expertUserId = widget.currentUser.userId;
+
+      if (expertUserId == null) {
+        throw Exception('Uzman kullanıcı ID bulunamadı.');
+      }
+
+      final patients = await _patientRepository.getPatientsByExpert(
+        expertUserId: expertUserId,
+      );
 
       if (!mounted) return;
 
@@ -92,6 +102,42 @@ class _PatientListScreenState extends State<PatientListScreen> {
         '${date.year}';
   }
 
+  Future<void> _openCreatePatientScreen() async {
+    final newPatient = await Navigator.push<Patient>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PatientCreateScreen(
+          currentUser: widget.currentUser,
+        ),
+      ),
+    );
+
+    if (newPatient == null || !mounted) return;
+
+    await _loadPatients();
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${newPatient.fullName} hasta kaydı oluşturuldu.'),
+      ),
+    );
+  }
+
+  void _openPatientDetail(Patient patient) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PatientDetailScreen(
+          currentUser: widget.currentUser,
+          patient: patient,
+          pressureRepository: widget.pressureRepository,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -125,6 +171,15 @@ class _PatientListScreenState extends State<PatientListScreen> {
               decoration: InputDecoration(
                 hintText: 'Hasta adı, kodu, e-posta veya telefon ile ara',
                 prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchController.text.trim().isEmpty
+                    ? null
+                    : IconButton(
+                        onPressed: () {
+                          _searchController.clear();
+                          _filterPatients('');
+                        },
+                        icon: const Icon(Icons.clear),
+                      ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -138,29 +193,7 @@ class _PatientListScreenState extends State<PatientListScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          final newPatient = await Navigator.push<Patient>(
-            context,
-            MaterialPageRoute(
-              builder: (_) => PatientCreateScreen(
-                currentUser: widget.currentUser,
-              ),
-            ),
-          );
-
-          if (newPatient != null && mounted) {
-            setState(() {
-              _allPatients = [newPatient, ..._allPatients];
-              _filteredPatients = [newPatient, ..._filteredPatients];
-            });
-
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('${newPatient.fullName} hasta kaydı oluşturuldu.'),
-              ),
-            );
-          }
-        },
+        onPressed: _openCreatePatientScreen,
         backgroundColor: Colors.teal,
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text(
@@ -180,111 +213,125 @@ class _PatientListScreenState extends State<PatientListScreen> {
 
     if (_errorMessage != null) {
       return Center(
-        child: Text(
-          _errorMessage!,
-          style: const TextStyle(color: Colors.red),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _errorMessage!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.red),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _loadPatients,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Tekrar Dene'),
+            ),
+          ],
         ),
       );
     }
 
     if (_filteredPatients.isEmpty) {
-      return const Center(
-        child: Text('Kayıtlı hasta bulunamadı.'),
+      final hasSearch = _searchController.text.trim().isNotEmpty;
+
+      return Center(
+        child: Text(
+          hasSearch
+              ? 'Arama kriterine uygun hasta bulunamadı.'
+              : 'Kayıtlı hasta bulunamadı.',
+        ),
       );
     }
 
-    return ListView.separated(
-      itemCount: _filteredPatients.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final patient = _filteredPatients[index];
+    return RefreshIndicator(
+      onRefresh: _loadPatients,
+      child: ListView.separated(
+        itemCount: _filteredPatients.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          final patient = _filteredPatients[index];
 
-        return Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: Colors.white,
+          return InkWell(
+            onTap: () => _openPatientDetail(patient),
             borderRadius: BorderRadius.circular(16),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black12,
-                blurRadius: 8,
+            child: Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 8,
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CircleAvatar(
-                radius: 26,
-                backgroundColor: Colors.teal.withOpacity(0.12),
-                child: const Icon(
-                  Icons.person,
-                  color: Colors.teal,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      patient.fullName,
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                      ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(
+                    radius: 26,
+                    backgroundColor: Colors.teal.withOpacity(0.12),
+                    child: const Icon(
+                      Icons.person,
+                      color: Colors.teal,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Hasta Kodu: ${patient.patientCode}',
-                      style: TextStyle(color: Colors.grey[700]),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      runSpacing: 6,
-                      spacing: 12,
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildInfoChip(Icons.email, patient.displayEmail),
-                        _buildInfoChip(Icons.phone, patient.displayPhone),
-                        _buildInfoChip(
-                          Icons.cake_outlined,
-                          _formatBirthDate(patient.birthDate),
+                        Text(
+                          patient.fullName,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                        _buildInfoChip(Icons.wc, patient.displayGender),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Hasta Kodu: ${patient.patientCode}',
+                          style: TextStyle(color: Colors.grey[700]),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          runSpacing: 6,
+                          spacing: 12,
+                          children: [
+                            _buildInfoChip(Icons.email, patient.displayEmail),
+                            _buildInfoChip(Icons.phone, patient.displayPhone),
+                            _buildInfoChip(
+                              Icons.cake_outlined,
+                              _formatBirthDate(patient.birthDate),
+                            ),
+                            _buildInfoChip(Icons.wc, patient.displayGender),
+                          ],
+                        ),
+                        if ((patient.notes ?? '').trim().isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            'Not: ${patient.notes!}',
+                            style: TextStyle(
+                              color: Colors.grey[800],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
-                    if ((patient.notes ?? '').trim().isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      Text(
-                        'Not: ${patient.notes!}',
-                        style: TextStyle(
-                          color: Colors.grey[800],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 12),
+                  IconButton(
+                    onPressed: () => _openPatientDetail(patient),
+                    icon: const Icon(Icons.arrow_forward_ios),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              IconButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => PatientDetailScreen(
-                        currentUser: widget.currentUser,
-                        patient: patient,
-                        pressureRepository: widget.pressureRepository,
-                      ),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.arrow_forward_ios),
-              ),
-            ],
-          ),
-        );
-      },
+            ),
+          );
+        },
+      ),
     );
   }
 

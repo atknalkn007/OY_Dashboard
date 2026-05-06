@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:oy_site/data/mock/mock_measurement_session_repository.dart';
+import 'package:oy_site/data/repositories/supabase_measurement_session_repository.dart';
 import 'package:oy_site/models/app_user.dart';
 import 'package:oy_site/models/measurement_session.dart';
 import 'package:oy_site/models/patient.dart';
@@ -23,8 +23,8 @@ class PatientDetailScreen extends StatefulWidget {
 }
 
 class _PatientDetailScreenState extends State<PatientDetailScreen> {
-  final MockMeasurementSessionRepository _sessionRepository =
-      MockMeasurementSessionRepository();
+  final SupabaseMeasurementSessionRepository _sessionRepository =
+      SupabaseMeasurementSessionRepository();
 
   bool _isLoadingSessions = true;
   String? _errorMessage;
@@ -43,17 +43,20 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     });
 
     try {
-      final allSessions = await _sessionRepository.getSessions();
+      final patientId = widget.patient.patientId;
 
-      final patientSessions = allSessions
-          .where((session) => session.patientId == widget.patient.patientId)
-          .toList()
-        ..sort((a, b) => b.sessionDate.compareTo(a.sessionDate));
+      if (patientId == null) {
+        throw Exception('Hasta ID bulunamadı.');
+      }
+
+      final sessions = await _sessionRepository.getSessionsByPatient(
+        patientId: patientId,
+      );
 
       if (!mounted) return;
 
       setState(() {
-        _sessions = patientSessions;
+        _sessions = sessions;
         _isLoadingSessions = false;
       });
     } catch (e) {
@@ -118,22 +121,23 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     }
   }
 
-Future<void> _openCreateSessionScreen() async {
-  final newSession = await Navigator.push<MeasurementSession>(
-    context,
-    MaterialPageRoute(
-      builder: (_) => CreateSessionScreen(
-        currentUser: widget.currentUser,
-        patients: [widget.patient],
-        initialPatient: widget.patient,
+  Future<void> _openCreateSessionScreen() async {
+    final newSession = await Navigator.push<MeasurementSession>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CreateSessionScreen(
+          currentUser: widget.currentUser,
+          patients: [widget.patient],
+          initialPatient: widget.patient,
+        ),
       ),
-    ),
-  );
+    );
 
-  if (newSession != null && mounted) {
-    setState(() {
-      _sessions = [newSession, ..._sessions];
-    });
+    if (newSession == null || !mounted) return;
+
+    await _loadSessions();
+
+    if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -151,8 +155,28 @@ Future<void> _openCreateSessionScreen() async {
         ),
       ),
     );
+
+    if (mounted) {
+      await _loadSessions();
+    }
   }
-}
+
+  void _openSessionDetail(MeasurementSession session) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SessionDetailScreen(
+          currentUser: widget.currentUser,
+          session: session,
+          pressureRepository: widget.pressureRepository,
+        ),
+      ),
+    ).then((_) {
+      if (mounted) {
+        _loadSessions();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -280,7 +304,8 @@ Future<void> _openCreateSessionScreen() async {
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Hasta düzenleme ekranını sonra bağlayacağız.'),
+                      content:
+                          Text('Hasta düzenleme ekranını sonra bağlayacağız.'),
                     ),
                   );
                 },
@@ -327,11 +352,11 @@ Future<void> _openCreateSessionScreen() async {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildKeyValueRow('Onam Durumu', 'Henüz bağlanmadı'),
-          _buildKeyValueRow('Bilgilendirme', 'Mock veri aşamasında'),
+          _buildKeyValueRow('Bilgilendirme', 'Supabase hasta kaydı aktif'),
           _buildKeyValueRow('E-posta Gönderimi', 'Henüz tanımlanmadı'),
           const SizedBox(height: 8),
           Text(
-            'Bu alan daha sonra patient_kvkk_consents tablosuna bağlanacak.',
+            'Bu alan daha sonra patient_kvkk_consents ve davet bağlantısı akışına bağlanacak.',
             style: TextStyle(
               color: Colors.grey[600],
             ),
@@ -360,9 +385,21 @@ Future<void> _openCreateSessionScreen() async {
 
     if (_errorMessage != null) {
       return Center(
-        child: Text(
-          _errorMessage!,
-          style: const TextStyle(color: Colors.red),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _errorMessage!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.red),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _loadSessions,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Tekrar Dene'),
+            ),
+          ],
         ),
       );
     }
@@ -373,125 +410,133 @@ Future<void> _openCreateSessionScreen() async {
       );
     }
 
-    return ListView.separated(
-      itemCount: _sessions.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final session = _sessions[index];
-        final statusColor = _statusColor(session.status);
+    return RefreshIndicator(
+      onRefresh: _loadSessions,
+      child: ListView.separated(
+        itemCount: _sessions.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          final session = _sessions[index];
+          final statusColor = _statusColor(session.effectiveStatus);
 
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade50,
+          return InkWell(
+            onTap: () => _openSessionDetail(session),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CircleAvatar(
-                backgroundColor: statusColor.withOpacity(0.12),
-                child: Icon(
-                  Icons.fact_check,
-                  color: statusColor,
-                ),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.grey.shade300),
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 8,
-                      crossAxisAlignment: WrapCrossAlignment.center,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(
+                    backgroundColor: statusColor.withOpacity(0.12),
+                    child: Icon(
+                      Icons.fact_check,
+                      color: statusColor,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          session.sessionCode,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: statusColor.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            _statusLabel(session.status),
-                            style: TextStyle(
-                              color: statusColor,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 12,
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 8,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Text(
+                              session.sessionCode,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
                             ),
-                          ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: statusColor.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                _statusLabel(session.effectiveStatus),
+                                style: TextStyle(
+                                  color: statusColor,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Tarih: ${_formatDate(session.sessionDate)}'
+                          '${session.sessionTime != null ? ' • Saat: ${session.sessionTime}' : ''}',
+                          style: TextStyle(color: Colors.grey[700]),
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _buildTag(
+                              session.clinicalInfoCompleted
+                                  ? 'Klinik Bilgi Var'
+                                  : 'Klinik Bilgi Yok',
+                              session.clinicalInfoCompleted,
+                            ),
+                            _buildTag(
+                              session.has3dScan ? '3D Scan Var' : '3D Scan Yok',
+                              session.has3dScan,
+                            ),
+                            _buildTag(
+                              session.hasPlantarCsv
+                                  ? 'Plantar Veri Var'
+                                  : 'Plantar Veri Yok',
+                              session.hasPlantarCsv,
+                            ),
+                            _buildTag(
+                              session.hasInsolePhoto
+                                  ? 'Fotoğraf Var'
+                                  : 'Fotoğraf Yok',
+                              session.hasInsolePhoto,
+                            ),
+                            _buildTag(
+                              session.designFormCompleted
+                                  ? 'Tasarım Formu Var'
+                                  : 'Tasarım Formu Yok',
+                              session.designFormCompleted,
+                            ),
+                            _buildTag(
+                              session.orderCreated
+                                  ? 'Sipariş Oluşturuldu'
+                                  : 'Sipariş Yok',
+                              session.orderCreated,
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Tarih: ${_formatDate(session.sessionDate)}'
-                      '${session.sessionTime != null ? ' • Saat: ${session.sessionTime}' : ''}',
-                      style: TextStyle(color: Colors.grey[700]),
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _buildTag(
-                          session.has3dScan ? '3D Scan Var' : '3D Scan Yok',
-                          session.has3dScan,
-                        ),
-                        _buildTag(
-                          session.hasPlantarCsv
-                              ? 'Plantar Veri Var'
-                              : 'Plantar Veri Yok',
-                          session.hasPlantarCsv,
-                        ),
-                        _buildTag(
-                          session.hasInsolePhoto
-                              ? 'Fotoğraf Var'
-                              : 'Fotoğraf Yok',
-                          session.hasInsolePhoto,
-                        ),
-                        _buildTag(
-                          session.orderCreated
-                              ? 'Sipariş Oluşturuldu'
-                              : 'Sipariş Yok',
-                          session.orderCreated,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton(
+                    onPressed: () => _openSessionDetail(session),
+                    child: const Text('Detay'),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              TextButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => SessionDetailScreen(
-                        currentUser: widget.currentUser,
-                        session: session,
-                        pressureRepository: widget.pressureRepository,
-                      ),
-                    ),
-                  );
-                },
-                child: const Text('Detay'),
-              ),
-            ],
-          ),
-        );
-      },
+            ),
+          );
+        },
+      ),
     );
   }
 

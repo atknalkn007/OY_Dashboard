@@ -4,6 +4,7 @@ import 'package:oy_site/models/customer_analysis_result_model.dart';
 import 'package:oy_site/models/session_scan_assets.dart';
 import 'package:oy_site/services/scan/session_scan_assets_parser.dart';
 import 'package:oy_site/models/parsed_scan_report.dart';
+import 'package:oy_site/services/analysis/analysis_runtime_cache.dart';
 
 class MockCustomerAnalysisRepository {
   final SessionScanAssetsParser _parser = const SessionScanAssetsParser();
@@ -12,6 +13,11 @@ class MockCustomerAnalysisRepository {
     required int userId,
   }) async {
     await Future.delayed(const Duration(milliseconds: 350));
+
+    final cachedResult = AnalysisRuntimeCache.instance.latestResult;
+    if (cachedResult != null) {
+      return cachedResult;
+    }
 
     // Geçici local test klasörü:
     const localScanFolderPath =
@@ -113,7 +119,7 @@ class MockCustomerAnalysisRepository {
         rightFootWidth: 101.8,
         leftArchHeight: 13.5,
         rightArchHeight: 12.4,
-        leftHalluxAngle: 2.4,
+        leftHalluxAngle: 3.5,
         rightHalluxAngle: 1.5,
         leftPronatorAngle: 2.2,
         rightPronatorAngle: 0.6,
@@ -245,7 +251,7 @@ class MockCustomerAnalysisRepository {
       rightFootWidth: 102.3,
       leftArchHeight: 12.8,
       rightArchHeight: 11.9,
-      leftHalluxAngle: 3.1,
+      leftHalluxAngle: 3.5,
       rightHalluxAngle: 1.5,
       leftPronatorAngle: 3.0,
       rightPronatorAngle: 1.2,
@@ -305,7 +311,7 @@ class MockCustomerAnalysisRepository {
       rightFootWidth: 102.9,
       leftArchHeight: 12.1,
       rightArchHeight: 11.2,
-      leftHalluxAngle: 4.0,
+      leftHalluxAngle: 3.5,
       rightHalluxAngle: 1.9,
       leftPronatorAngle: 3.8,
       rightPronatorAngle: 1.8,

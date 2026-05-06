@@ -3,6 +3,7 @@ import 'package:oy_site/data/mock/mock_customer_analysis_repository.dart';
 import 'package:oy_site/models/app_user.dart';
 import 'package:oy_site/models/customer_analysis_result_model.dart';
 import 'package:oy_site/screens/dashboard/analysis_results_view.dart';
+import 'package:oy_site/data/repositories/supabase_analysis_repository.dart';
 
 class CustomerAnalysisResultsScreen extends StatefulWidget {
   final AppUser currentUser;
@@ -21,6 +22,8 @@ class _CustomerAnalysisResultsScreenState
     extends State<CustomerAnalysisResultsScreen> {
   final MockCustomerAnalysisRepository _repository =
       MockCustomerAnalysisRepository();
+  final SupabaseAnalysisRepository _supabaseRepository =
+      SupabaseAnalysisRepository();
 
   bool _isLoading = true;
   String? _errorMessage;
@@ -44,7 +47,12 @@ class _CustomerAnalysisResultsScreenState
         throw Exception('Kullanıcı ID bulunamadı.');
       }
 
-      final results = await _repository.getAnalysisHistory(userId: userId);
+      final supabaseResults =
+          await _supabaseRepository.getAnalysisHistory(userId: userId);
+
+      final results = supabaseResults.isNotEmpty
+          ? supabaseResults
+          : await _repository.getAnalysisHistory(userId: userId);
 
       if (!mounted) return;
 
@@ -53,12 +61,25 @@ class _CustomerAnalysisResultsScreenState
         _isLoading = false;
       });
     } catch (e) {
-      if (!mounted) return;
+      try {
+        final userId = widget.currentUser.userId;
+        final fallbackResults =
+            await _repository.getAnalysisHistory(userId: userId ?? 0);
 
-      setState(() {
-        _errorMessage = 'Analiz sonuçları yüklenirken hata oluştu: $e';
-        _isLoading = false;
-      });
+        if (!mounted) return;
+
+        setState(() {
+          _results = fallbackResults;
+          _isLoading = false;
+        });
+      } catch (_) {
+        if (!mounted) return;
+
+        setState(() {
+          _errorMessage = 'Analiz sonuçları yüklenirken hata oluştu: $e';
+          _isLoading = false;
+        });
+      }
     }
   }
 

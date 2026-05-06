@@ -1,0 +1,48 @@
+import 'package:oy_site/models/patient.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class SupabasePatientRepository {
+  SupabaseClient get _client => Supabase.instance.client;
+
+  Future<Patient> createPatient(Patient patient) async {
+    final response = await _client
+        .from('patients')
+        .insert(patient.toInsertMap())
+        .select()
+        .single();
+
+    return Patient.fromMap(
+      Map<String, dynamic>.from(response as Map),
+    );
+  }
+
+  Future<List<Patient>> getPatientsByExpert({
+    required int expertUserId,
+  }) async {
+    final response = await _client
+        .from('patients')
+        .select()
+        .eq('created_by_user_id', expertUserId)
+        .order('created_at', ascending: false);
+
+    return (response as List<dynamic>)
+        .map((item) => Patient.fromMap(Map<String, dynamic>.from(item as Map)))
+        .toList();
+  }
+
+  Future<Patient?> getPatientById({
+    required int patientId,
+  }) async {
+    final response = await _client
+        .from('patients')
+        .select()
+        .eq('id', patientId)
+        .maybeSingle();
+
+    if (response == null) return null;
+
+    return Patient.fromMap(
+      Map<String, dynamic>.from(response as Map),
+    );
+  }
+}

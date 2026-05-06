@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:oy_site/data/repositories/supabase_measurement_session_repository.dart';
 import 'package:oy_site/models/app_user.dart';
 import 'package:oy_site/models/measurement_session.dart';
 import 'package:oy_site/models/patient.dart';
@@ -20,6 +21,9 @@ class CreateSessionScreen extends StatefulWidget {
 }
 
 class _CreateSessionScreenState extends State<CreateSessionScreen> {
+  final SupabaseMeasurementSessionRepository _sessionRepository =
+      SupabaseMeasurementSessionRepository();
+
   Patient? _selectedPatient;
   DateTime _selectedDate = DateTime.now();
   TimeOfDay? _selectedTime;
@@ -58,37 +62,87 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
       return;
     }
 
+    final patientId = _selectedPatient!.patientId;
+    final expertUserId = widget.currentUser.userId;
+
+    if (patientId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Hasta ID bulunamadı. Lütfen hastayı tekrar seçin.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (expertUserId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Uzman kullanıcı ID bulunamadı.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _isSaving = true;
     });
 
-    await Future.delayed(const Duration(milliseconds: 300));
+    try {
+      final session = MeasurementSession(
+        sessionId: null,
+        clinicId: widget.currentUser.clinicId ?? 0,
+        patientId: patientId,
+        expertUserId: expertUserId,
+        assignedOptityouUserId: null,
+        sessionCode: _generateSessionCode(),
+        sessionDate: _selectedDate,
+        sessionTime: _formatTimeOfDay(_selectedTime),
+        status: SessionStatuses.draft,
+        has3dScan: false,
+        hasPlantarCsv: false,
+        hasInsolePhoto: false,
+        orderCreated: false,
+        clinicalInfoCompleted: false,
+        designFormCompleted: false,
+        completedAt: null,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
 
-    final session = MeasurementSession(
-      sessionId: DateTime.now().millisecondsSinceEpoch,
-      clinicId: widget.currentUser.clinicId ?? 0,
-      patientId: _selectedPatient!.patientId ?? 0,
-      expertUserId: widget.currentUser.userId ?? 0,
-      assignedOptityouUserId: null,
-      sessionCode: _generateSessionCode(),
-      sessionDate: _selectedDate,
-      sessionTime: _formatTimeOfDay(_selectedTime),
-      status: SessionStatuses.draft,
-      has3dScan: false,
-      hasPlantarCsv: false,
-      hasInsolePhoto: false,
-      orderCreated: false,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
+      final savedSession = await _sessionRepository.createSession(
+        session: session,
+      );
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    setState(() {
-      _isSaving = false;
-    });
+      setState(() {
+        _isSaving = false;
+      });
 
-    Navigator.pop(context, session);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${savedSession.sessionCode} oluşturuldu.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      Navigator.pop(context, savedSession);
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isSaving = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Oturum oluşturulamadı: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -121,7 +175,6 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
                   style: TextStyle(color: Colors.grey[700]),
                 ),
                 const SizedBox(height: 24),
-
                 DropdownButtonFormField<Patient>(
                   initialValue: _selectedPatient,
                   decoration: const InputDecoration(
@@ -142,9 +195,7 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
                           });
                         },
                 ),
-
                 const SizedBox(height: 20),
-
                 InkWell(
                   onTap: () async {
                     final picked = await showDatePicker(
@@ -172,9 +223,7 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 20),
-
                 InkWell(
                   onTap: () async {
                     final picked = await showTimePicker(
@@ -200,9 +249,7 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 24),
-
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
@@ -217,9 +264,7 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
                     style: const TextStyle(height: 1.5),
                   ),
                 ),
-
                 const SizedBox(height: 30),
-
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(

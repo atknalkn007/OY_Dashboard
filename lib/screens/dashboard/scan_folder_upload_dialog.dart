@@ -3,8 +3,15 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:oy_site/constants/scan_report_labels.dart';
+import 'package:oy_site/data/repositories/supabase_analysis_repository.dart';
+import 'package:oy_site/models/customer_analysis_result_model.dart';
 import 'package:oy_site/models/parsed_scan_report.dart';
+import 'package:oy_site/models/session_scan_assets.dart';
+import 'package:oy_site/services/analysis/analysis_runtime_cache.dart';
+import 'package:oy_site/services/analysis/plantar_pressure_mock_factory.dart';
 import 'package:oy_site/services/scan/scan_report_pdf_parser_service.dart';
+import 'package:oy_site/services/scan/session_scan_assets_parser.dart';
+import 'package:oy_site/services/session_analysis_service.dart';
 
 class ScanFolderUploadResult {
   final String folderPath;
@@ -21,7 +28,12 @@ class ScanFolderUploadResult {
 }
 
 class ScanFolderUploadDialog extends StatefulWidget {
-  const ScanFolderUploadDialog({super.key});
+  final int? targetUserId;
+
+  const ScanFolderUploadDialog({
+    super.key,
+    this.targetUserId,
+  });
 
   @override
   State<ScanFolderUploadDialog> createState() => _ScanFolderUploadDialogState();
@@ -31,20 +43,32 @@ class _ScanFolderUploadDialogState extends State<ScanFolderUploadDialog> {
   final ScanReportPdfParserService _pdfParserService =
       const ScanReportPdfParserService();
 
+  final SessionScanAssetsParser _assetsParser =
+      const SessionScanAssetsParser();
+
+  final SupabaseAnalysisRepository _analysisRepository =
+      SupabaseAnalysisRepository();
+
   String? _selectedFolderPath;
   List<String> _fileNames = [];
   bool _isLoading = false;
+  bool _isSavingAnalysis = false;
   String? _errorMessage;
+  String? _saveMessage;
 
   String? _detectedPdfPath;
   ParsedScanReport? _parsedReport;
+  SessionScanAssets? _scanAssets;
 
   Future<void> _pickFolder() async {
     setState(() {
       _isLoading = true;
+      _isSavingAnalysis = false;
       _errorMessage = null;
+      _saveMessage = null;
       _detectedPdfPath = null;
       _parsedReport = null;
+      _scanAssets = null;
     });
 
     try {
@@ -70,7 +94,6 @@ class _ScanFolderUploadDialogState extends State<ScanFolderUploadDialog> {
       }
 
       final entries = dir.listSync();
-
       final files = entries.whereType<File>().toList();
 
       final fileNames = files
@@ -95,13 +118,25 @@ class _ScanFolderUploadDialogState extends State<ScanFolderUploadDialog> {
         }
       }
 
+      SessionScanAssets? scanAssets;
+      try {
+        scanAssets = _assetsParser.parseFolder(folderPath);
+      } catch (e) {
+        debugPrint('Assets parse hatası: $e');
+      }
+
       setState(() {
         _selectedFolderPath = folderPath;
         _fileNames = fileNames;
         _detectedPdfPath = detectedPdfPath;
         _parsedReport = parsedReport;
+        _scanAssets = scanAssets;
         _isLoading = false;
       });
+
+      if (parsedReport != null) {
+        await _saveParsedReportAsAnalysisResult();
+      }
     } catch (e) {
       setState(() {
         _errorMessage = 'Klasör seçilirken hata oluştu: $e';
@@ -122,6 +157,77 @@ class _ScanFolderUploadDialogState extends State<ScanFolderUploadDialog> {
         parsedReport: _parsedReport,
       ),
     );
+  }
+
+  Future<void> _saveParsedReportAsAnalysisResult() async {
+    final report = _parsedReport;
+    final assets = _scanAssets;
+    final userId = widget.targetUserId;
+
+    if (report == null || assets == null) return;
+
+    setState(() {
+      _isSavingAnalysis = true;
+      _saveMessage = null;
+    });
+
+    final pressure = const PlantarPressureMockFactory().buildDefaultForTest();
+
+    final analysisResult = SessionAnalysisService().analyze(
+      report: report,
+      pressure: pressure,
+      analysisDate: DateTime.now(),
+      sessionCode: report.reportNo ?? 'REAL-PARSE-SESSION',
+      locationLabel: report.storeCode ?? report.address ?? 'Yüklenen Ölçüm',
+      visuals: CustomerAnalysisVisualSet(
+        sessionCode: report.reportNo ?? 'REAL-PARSE-SESSION',
+        archLeftImagePath: assets.archLeftPath,
+        archRightImagePath: assets.archRightPath,
+        archSectionLeftImagePath: assets.archSectionLeftPath,
+        archSectionRightImagePath: assets.archSectionRightPath,
+        foot2dLeftImagePath: assets.foot2dLeftPath,
+        foot2dRightImagePath: assets.foot2dRightPath,
+        pronatorLeftImagePath: assets.pronatorLeftPath,
+        pronatorRightImagePath: assets.pronatorRightPath,
+        leftStlPath: assets.stlLeftPath,
+        rightStlPath: assets.stlRightPath,
+      ),
+    );
+
+    AnalysisRuntimeCache.instance.saveLatest(analysisResult);
+
+    if (userId == null) {
+      setState(() {
+        _isSavingAnalysis = false;
+        _saveMessage =
+            'Analiz geçici olarak hazırlandı. Kullanıcı ID olmadığı için Supabase’e kaydedilmedi.';
+      });
+      return;
+    }
+
+    try {
+      await _analysisRepository.upsertAnalysisResult(
+        userId: userId,
+        result: analysisResult,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _isSavingAnalysis = false;
+        _saveMessage = 'Analiz Supabase’e kaydedildi.';
+      });
+    } catch (e) {
+      debugPrint('Supabase analiz kayıt hatası: $e');
+
+      if (!mounted) return;
+
+      setState(() {
+        _isSavingAnalysis = false;
+        _saveMessage =
+            'Analiz geçici olarak hazırlandı ancak Supabase’e kaydedilemedi: $e';
+      });
+    }
   }
 
   String _displayValue(Object? value) {
@@ -183,7 +289,62 @@ class _ScanFolderUploadDialogState extends State<ScanFolderUploadDialog> {
             ),
           ),
           const SizedBox(height: 12),
-
+          if (_isSavingAnalysis || _saveMessage != null) ...[
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: _saveMessage?.contains('kaydedilemedi') == true
+                    ? Colors.orange.withOpacity(0.10)
+                    : Colors.teal.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: _saveMessage?.contains('kaydedilemedi') == true
+                      ? Colors.orange.withOpacity(0.25)
+                      : Colors.teal.withOpacity(0.20),
+                ),
+              ),
+              child: Row(
+                children: [
+                  if (_isSavingAnalysis) ...[
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text('Analiz sonucu kaydediliyor...'),
+                    ),
+                  ] else ...[
+                    Icon(
+                      _saveMessage?.contains('kaydedilemedi') == true
+                          ? Icons.warning_amber_outlined
+                          : Icons.check_circle_outline,
+                      size: 18,
+                      color: _saveMessage?.contains('kaydedilemedi') == true
+                          ? Colors.orange
+                          : Colors.teal,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _saveMessage ?? '',
+                        style: TextStyle(
+                          color: _saveMessage?.contains('kaydedilemedi') == true
+                              ? Colors.orange[900]
+                              : Colors.teal[900],
+                          fontSize: 13,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
           _buildPreviewSection(
             title: 'Rapor Bilgileri',
             children: [
@@ -194,7 +355,6 @@ class _ScanFolderUploadDialogState extends State<ScanFolderUploadDialog> {
               _buildPreviewRow('Adres', _displayValue(report.address)),
             ],
           ),
-
           _buildPreviewSection(
             title: 'Kullanıcı Bilgileri',
             children: [
@@ -204,7 +364,6 @@ class _ScanFolderUploadDialogState extends State<ScanFolderUploadDialog> {
               _buildPreviewRow('Telefon', _displayValue(report.phone)),
             ],
           ),
-
           _buildPreviewSection(
             title: 'Uzunluk Ölçümleri',
             children: [
@@ -255,7 +414,6 @@ class _ScanFolderUploadDialogState extends State<ScanFolderUploadDialog> {
               ),
             ],
           ),
-
           _buildPreviewSection(
             title: 'Genişlik Ölçümleri',
             children: [
@@ -296,7 +454,6 @@ class _ScanFolderUploadDialogState extends State<ScanFolderUploadDialog> {
               ),
             ],
           ),
-
           _buildPreviewSection(
             title: 'Yükseklik Ölçümleri',
             children: [
@@ -317,7 +474,6 @@ class _ScanFolderUploadDialogState extends State<ScanFolderUploadDialog> {
               ),
             ],
           ),
-
           _buildPreviewSection(
             title: 'Kemer Analizi',
             children: [
@@ -338,7 +494,6 @@ class _ScanFolderUploadDialogState extends State<ScanFolderUploadDialog> {
               ),
             ],
           ),
-
           _buildPreviewSection(
             title: 'Halluks Analizi',
             children: [
@@ -354,7 +509,6 @@ class _ScanFolderUploadDialogState extends State<ScanFolderUploadDialog> {
               ),
             ],
           ),
-
           _buildPreviewSection(
             title: 'Topuk Analizi',
             children: [
@@ -380,7 +534,6 @@ class _ScanFolderUploadDialogState extends State<ScanFolderUploadDialog> {
               ),
             ],
           ),
-
           if ((report.recommendationText ?? '').isNotEmpty)
             _buildPreviewSection(
               title: 'Genel Öneri',
@@ -426,42 +579,46 @@ class _ScanFolderUploadDialogState extends State<ScanFolderUploadDialog> {
     );
   }
 
-Widget _buildPreviewSection({
-  required String title,
-  required List<Widget> children,
-}) {
-  return Padding(
-    padding: const EdgeInsets.only(bottom: 18),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 15,
+  Widget _buildPreviewSection({
+    required String title,
+    required List<Widget> children,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 15,
+            ),
           ),
-        ),
-        const SizedBox(height: 10),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade300),
+          const SizedBox(height: 10),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: children,
+            ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: children,
-          ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 
-  Widget _buildPairPreviewRow(String label, Object? leftValue, Object? rightValue) {
+  Widget _buildPairPreviewRow(
+    String label,
+    Object? leftValue,
+    Object? rightValue,
+  ) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -573,9 +730,7 @@ Widget _buildPreviewSection({
                           border: Border.all(color: Colors.grey.shade300),
                         ),
                         child: _isLoading
-                            ? const Center(
-                                child: CircularProgressIndicator(),
-                              )
+                            ? const Center(child: CircularProgressIndicator())
                             : _errorMessage != null
                                 ? Center(
                                     child: Text(
@@ -619,8 +774,8 @@ Widget _buildPreviewSection({
                                                     color: Colors.white,
                                                     borderRadius:
                                                         BorderRadius.circular(
-                                                          10,
-                                                        ),
+                                                      10,
+                                                    ),
                                                     border: Border.all(
                                                       color:
                                                           Colors.grey.shade300,
@@ -665,15 +820,22 @@ Widget _buildPreviewSection({
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed:
+                        _isSavingAnalysis ? null : () => Navigator.pop(context),
                     child: const Text('Vazgeç'),
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton(
-                    onPressed: _selectedFolderPath == null
+                    onPressed: _selectedFolderPath == null || _isSavingAnalysis
                         ? null
                         : _confirmSelection,
-                    child: const Text('Yüklemeyi Onayla'),
+                    child: _isSavingAnalysis
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Yüklemeyi Onayla'),
                   ),
                 ],
               ),

@@ -90,17 +90,17 @@ class Patient {
 
   factory Patient.fromMap(Map<String, dynamic> map) {
     return Patient(
-      patientId: map['patient_id'] as int?,
-      clinicId: map['clinic_id'] as int?,
-      createdByUserId: map['created_by_user_id'] as int?,
-      patientCode: map['patient_code'] as String? ?? '',
-      firstName: map['first_name'] as String? ?? '',
-      lastName: map['last_name'] as String? ?? '',
-      email: map['email'] as String?,
+      patientId: _toInt(map['id'] ?? map['patient_id']),
+      clinicId: _toInt(map['clinic_id']),
+      createdByUserId: _toInt(map['created_by_user_id']),
+      patientCode: map['patient_code']?.toString() ?? '',
+      firstName: map['first_name']?.toString() ?? '',
+      lastName: map['last_name']?.toString() ?? '',
+      email: map['email']?.toString(),
       birthDate: _parseDate(map['birth_date']),
-      gender: map['gender'] as String?,
-      phone: map['phone'] as String?,
-      notes: map['notes'] as String?,
+      gender: map['gender']?.toString(),
+      phone: map['phone']?.toString(),
+      notes: map['notes']?.toString(),
       createdAt: _parseDate(map['created_at']),
       updatedAt: _parseDate(map['updated_at']),
     );
@@ -108,7 +108,7 @@ class Patient {
 
   Map<String, dynamic> toMap() {
     return {
-      'patient_id': patientId,
+      if (patientId != null) 'id': patientId,
       'clinic_id': clinicId,
       'created_by_user_id': createdByUserId,
       'patient_code': patientCode,
@@ -119,8 +119,21 @@ class Patient {
       'gender': gender,
       'phone': phone,
       'notes': notes,
-      'created_at': createdAt?.toIso8601String(),
-      'updated_at': updatedAt?.toIso8601String(),
+    };
+  }
+
+  Map<String, dynamic> toInsertMap() {
+    return {
+      'clinic_id': clinicId,
+      'created_by_user_id': createdByUserId,
+      'patient_code': patientCode,
+      'first_name': firstName,
+      'last_name': lastName,
+      'email': email,
+      'birth_date': birthDate?.toIso8601String(),
+      'gender': gender,
+      'phone': phone,
+      'notes': notes,
     };
   }
 
@@ -128,5 +141,12 @@ class Patient {
     if (value == null) return null;
     if (value is DateTime) return value;
     return DateTime.tryParse(value.toString());
+  }
+
+  static int? _toInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString());
   }
 }
