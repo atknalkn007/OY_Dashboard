@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:oy_site/data/mock/mock_order_repository.dart';
+import 'package:oy_site/data/repositories/supabase_order_repository.dart';
 import 'package:oy_site/models/app_user.dart';
 import 'package:oy_site/models/order_model.dart';
 import 'package:oy_site/screens/dashboard/order_detail_screen.dart';
@@ -17,7 +17,7 @@ class OrdersScreen extends StatefulWidget {
 }
 
 class _OrdersScreenState extends State<OrdersScreen> {
-  final MockOrderRepository _orderRepository = MockOrderRepository();
+  final SupabaseOrderRepository _orderRepository = SupabaseOrderRepository();
   final TextEditingController _searchController = TextEditingController();
 
   List<OrderModel> _allOrders = [];
@@ -45,7 +45,15 @@ class _OrdersScreenState extends State<OrdersScreen> {
     });
 
     try {
-      final orders = await _orderRepository.getOrders();
+      final userId = widget.currentUser.userId;
+
+      if (userId == null) {
+        throw Exception('Kullanıcı ID bulunamadı.');
+      }
+
+      final orders = widget.currentUser.isCustomer
+          ? await _orderRepository.getOrdersByUser(userId: userId)
+          : await _orderRepository.getOrdersByExpert(expertUserId: userId);
 
       if (!mounted) return;
 
@@ -144,6 +152,22 @@ class _OrdersScreenState extends State<OrdersScreen> {
     }
   }
 
+  void _openOrderDetail(OrderModel order) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OrderDetailScreen(
+          currentUser: widget.currentUser,
+          order: order,
+        ),
+      ),
+    ).then((_) {
+      if (mounted) {
+        _loadOrders();
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -171,6 +195,15 @@ class _OrdersScreenState extends State<OrdersScreen> {
               decoration: InputDecoration(
                 hintText: 'Sipariş no, ürün tipi veya durum ile ara',
                 prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchController.text.trim().isEmpty
+                    ? null
+                    : IconButton(
+                        onPressed: () {
+                          _searchController.clear();
+                          _filterOrders('');
+                        },
+                        icon: const Icon(Icons.clear),
+                      ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -193,9 +226,21 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
     if (_errorMessage != null) {
       return Center(
-        child: Text(
-          _errorMessage!,
-          style: const TextStyle(color: Colors.red),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _errorMessage!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.red),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _loadOrders,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Tekrar Dene'),
+            ),
+          ],
         ),
       );
     }
@@ -210,126 +255,123 @@ class _OrdersScreenState extends State<OrdersScreen> {
       );
     }
 
-    return ListView.separated(
-      itemCount: _filteredOrders.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final order = _filteredOrders[index];
-        final statusColor = _statusColor(order.orderStatus);
+    return RefreshIndicator(
+      onRefresh: _loadOrders,
+      child: ListView.separated(
+        itemCount: _filteredOrders.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          final order = _filteredOrders[index];
+          final statusColor = _statusColor(order.orderStatus);
 
-        return Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: Colors.white,
+          return InkWell(
+            onTap: () => _openOrderDetail(order),
             borderRadius: BorderRadius.circular(16),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black12,
-                blurRadius: 8,
+            child: Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 8,
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CircleAvatar(
-                radius: 26,
-                backgroundColor: statusColor.withOpacity(0.12),
-                child: Icon(
-                  Icons.shopping_bag,
-                  color: statusColor,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 8,
-                      crossAxisAlignment: WrapCrossAlignment.center,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(
+                    radius: 26,
+                    backgroundColor: statusColor.withOpacity(0.12),
+                    child: Icon(
+                      Icons.shopping_bag,
+                      color: statusColor,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          order.orderNo,
-                          style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: statusColor.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            _statusLabel(order.orderStatus),
-                            style: TextStyle(
-                              color: statusColor,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 12,
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 8,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Text(
+                              order.orderNo,
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: statusColor.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                _statusLabel(order.orderStatus),
+                                style: TextStyle(
+                                  color: statusColor,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Ürün: ${_productLabel(order.productType)}',
+                          style: TextStyle(color: Colors.grey[800]),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Net Tutar: ${_formatMoney(order.netAmount, order.currencyCode)}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Ürün: ${_productLabel(order.productType)}',
-                      style: TextStyle(color: Colors.grey[800]),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Net Tutar: ${_formatMoney(order.netAmount, order.currencyCode)}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 8,
-                      children: [
-                        _buildInfoChip(
-                          Icons.calendar_today,
-                          'Sipariş: ${_formatDate(order.orderedAt)}',
-                        ),
-                        _buildInfoChip(
-                          Icons.local_shipping_outlined,
-                          'Kargo: ${_formatDate(order.shippedAt)}',
-                        ),
-                        _buildInfoChip(
-                          Icons.home_outlined,
-                          'Teslim: ${_formatDate(order.deliveredAt)}',
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 8,
+                          children: [
+                            _buildInfoChip(
+                              Icons.calendar_today,
+                              'Sipariş: ${_formatDate(order.orderedAt)}',
+                            ),
+                            _buildInfoChip(
+                              Icons.local_shipping_outlined,
+                              'Kargo: ${_formatDate(order.shippedAt)}',
+                            ),
+                            _buildInfoChip(
+                              Icons.home_outlined,
+                              'Teslim: ${_formatDate(order.deliveredAt)}',
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 12),
+                  IconButton(
+                    onPressed: () => _openOrderDetail(order),
+                    icon: const Icon(Icons.arrow_forward_ios),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              IconButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => OrderDetailScreen(
-                        currentUser: widget.currentUser,
-                        order: order,
-                      ),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.arrow_forward_ios),
-              ),
-            ],
-          ),
-        );
-      },
+            ),
+          );
+        },
+      ),
     );
   }
 

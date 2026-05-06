@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:oy_site/data/repositories/supabase_order_repository.dart';
 import 'package:oy_site/models/app_user.dart';
 import 'package:oy_site/models/order_model.dart';
 
-class OrderDetailScreen extends StatelessWidget {
+class OrderDetailScreen extends StatefulWidget {
   final AppUser currentUser;
   final OrderModel order;
 
@@ -11,6 +12,68 @@ class OrderDetailScreen extends StatelessWidget {
     required this.currentUser,
     required this.order,
   });
+
+  @override
+  State<OrderDetailScreen> createState() => _OrderDetailScreenState();
+}
+
+class _OrderDetailScreenState extends State<OrderDetailScreen> {
+  final SupabaseOrderRepository _orderRepository = SupabaseOrderRepository();
+
+  late OrderModel _order;
+  bool _isUpdating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _order = widget.order;
+  }
+
+  Future<void> _updateStatus(String newStatus) async {
+    setState(() => _isUpdating = true);
+
+    try {
+      final now = DateTime.now();
+
+      final updatedOrder = _order.copyWith(
+        orderStatus: newStatus,
+        shippedAt: newStatus == OrderStatuses.shipped && _order.shippedAt == null
+            ? now
+            : _order.shippedAt,
+        deliveredAt:
+            newStatus == OrderStatuses.delivered && _order.deliveredAt == null
+                ? now
+                : _order.deliveredAt,
+      );
+
+      await _orderRepository.updateOrder(updatedOrder);
+
+      if (!mounted) return;
+
+      setState(() {
+        _order = updatedOrder;
+        _isUpdating = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sipariş durumu güncellendi.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() => _isUpdating = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Sipariş güncellenemedi: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
 
   String _formatDate(DateTime? date) {
     if (date == null) return '—';
@@ -75,7 +138,7 @@ class OrderDetailScreen extends StatelessWidget {
   }
 
   int _currentStepIndex() {
-    switch (order.orderStatus) {
+    switch (_order.orderStatus) {
       case OrderStatuses.pending:
         return 0;
       case OrderStatuses.designing:
@@ -130,6 +193,275 @@ class OrderDetailScreen extends StatelessWidget {
     ];
   }
 
+  bool get _canUpdateOrder =>
+      !widget.currentUser.isCustomer && _order.orderId != null;
+
+  @override
+  Widget build(BuildContext context) {
+    final statusColor = _statusColor(_order.orderStatus);
+    final steps = _buildOrderSteps();
+    final completedCount = steps.where((e) => e.isCompleted).length;
+    final progress = steps.isEmpty ? 0.0 : completedCount / steps.length;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Sipariş Detayı'),
+        backgroundColor: Colors.teal,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1100),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(statusColor),
+                const SizedBox(height: 24),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        children: [
+                          _buildOrderInfoCard(),
+                          const SizedBox(height: 16),
+                          _buildDeliveryAddressCard(),
+                          if (_canUpdateOrder) ...[
+                            const SizedBox(height: 16),
+                            _buildStatusUpdateCard(),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 24),
+                    Expanded(
+                      flex: 3,
+                      child: Column(
+                        children: [
+                          _buildFlowCard(progress, steps),
+                          const SizedBox(height: 16),
+                          _buildPriceCard(),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(Color statusColor) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: _cardDecoration(),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 34,
+            backgroundColor: statusColor.withOpacity(0.12),
+            child: Icon(
+              Icons.shopping_bag,
+              size: 34,
+              color: statusColor,
+            ),
+          ),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _order.orderNo,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Ürün: ${_productLabel(_order.productType)}',
+                  style: TextStyle(color: Colors.grey[700]),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'İşlem yapan kullanıcı: ${widget.currentUser.displayName}',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: statusColor.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              _statusLabel(_order.orderStatus),
+              style: TextStyle(
+                color: statusColor,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOrderInfoCard() {
+    return _buildSectionCard(
+      title: 'Sipariş Bilgileri',
+      child: Column(
+        children: [
+          _buildKeyValueRow('Order ID', _order.orderId?.toString() ?? '—'),
+          _buildKeyValueRow('Session ID', _order.sessionId.toString()),
+          _buildKeyValueRow('Patient ID', _order.patientId.toString()),
+          _buildKeyValueRow('Clinic ID', _order.clinicId.toString()),
+          _buildKeyValueRow('Expert User ID', _order.expertUserId.toString()),
+          _buildKeyValueRow(
+            'Assigned OptiYou User ID',
+            _order.assignedOptityouUserId?.toString() ?? '—',
+          ),
+          _buildKeyValueRow('Sipariş Tarihi', _formatDate(_order.orderedAt)),
+          _buildKeyValueRow('Kargo Tarihi', _formatDate(_order.shippedAt)),
+          _buildKeyValueRow('Teslim Tarihi', _formatDate(_order.deliveredAt)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDeliveryAddressCard() {
+    final snapshot = _order.deliveryAddressSnapshot;
+
+    if (snapshot == null || snapshot.isEmpty) {
+      return _buildSectionCard(
+        title: 'Teslimat Adresi',
+        child: Text(
+          'Teslimat adresi bulunamadı.',
+          style: TextStyle(color: Colors.grey[700]),
+        ),
+      );
+    }
+
+    final title = snapshot['title']?.toString() ?? 'Teslimat Adresi';
+    final fullName = snapshot['full_name']?.toString() ?? '—';
+    final phone = snapshot['phone']?.toString() ?? '—';
+    final city = snapshot['city']?.toString() ?? '—';
+    final district = snapshot['district']?.toString() ?? '—';
+    final addressLine = snapshot['address_line']?.toString() ?? '—';
+
+    return _buildSectionCard(
+      title: 'Teslimat Adresi',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Text('$fullName • $phone'),
+          const SizedBox(height: 6),
+          Text('$addressLine, $district/$city'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusUpdateCard() {
+    return _buildSectionCard(
+      title: 'Durum Güncelle',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DropdownButtonFormField<String>(
+            value: _order.orderStatus,
+            decoration: const InputDecoration(
+              labelText: 'Sipariş Durumu',
+              border: OutlineInputBorder(),
+            ),
+            items: OrderStatuses.values.map((status) {
+              return DropdownMenuItem<String>(
+                value: status,
+                child: Text(_statusLabel(status)),
+              );
+            }).toList(),
+            onChanged: _isUpdating
+                ? null
+                : (value) {
+                    if (value == null || value == _order.orderStatus) return;
+                    _updateStatus(value);
+                  },
+          ),
+          if (_isUpdating) ...[
+            const SizedBox(height: 12),
+            const LinearProgressIndicator(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFlowCard(double progress, List<_OrderFlowStep> steps) {
+    return _buildSectionCard(
+      title: 'Üretim / Sipariş Akışı',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Tamamlanma Oranı: ${(progress * 100).toStringAsFixed(0)}%',
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 10,
+              backgroundColor: Colors.grey.shade300,
+              color: Colors.teal,
+            ),
+          ),
+          const SizedBox(height: 22),
+          ...List.generate(steps.length, (index) {
+            final step = steps[index];
+            final isLast = index == steps.length - 1;
+            return _buildFlowStep(step: step, isLast: isLast);
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPriceCard() {
+    return _buildSectionCard(
+      title: 'Fiyat Bilgileri',
+      child: Column(
+        children: [
+          _buildKeyValueRow(
+            'Brüt Tutar',
+            _formatMoney(_order.grossAmount, _order.currencyCode),
+          ),
+          _buildKeyValueRow(
+            'İndirim',
+            _formatMoney(_order.discountAmount, _order.currencyCode),
+          ),
+          _buildKeyValueRow(
+            'Net Tutar',
+            _formatMoney(_order.netAmount, _order.currencyCode),
+          ),
+          _buildKeyValueRow('Para Birimi', _order.currencyCode),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSectionCard({
     required String title,
     required Widget child,
@@ -137,30 +469,31 @@ class OrderDetailScreen extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 8,
-          ),
-        ],
-      ),
+      decoration: _cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 19,
-              fontWeight: FontWeight.bold,
-            ),
+            style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 14),
           child,
         ],
       ),
+    );
+  }
+
+  BoxDecoration _cardDecoration() {
+    return BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      boxShadow: const [
+        BoxShadow(
+          color: Colors.black12,
+          blurRadius: 8,
+        ),
+      ],
     );
   }
 
@@ -171,19 +504,14 @@ class OrderDetailScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: Text(
-              label,
-              style: TextStyle(color: Colors.grey[700]),
-            ),
+            child: Text(label, style: TextStyle(color: Colors.grey[700])),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               value,
               textAlign: TextAlign.right,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -210,9 +538,7 @@ class OrderDetailScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.12),
                   shape: BoxShape.circle,
-                  border: Border.all(
-                    color: color.withOpacity(0.4),
-                  ),
+                  border: Border.all(color: color.withOpacity(0.4)),
                 ),
                 child: Icon(
                   step.isCompleted ? Icons.check : step.icon,
@@ -307,206 +633,6 @@ class OrderDetailScreen extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final statusColor = _statusColor(order.orderStatus);
-    final steps = _buildOrderSteps();
-    final completedCount = steps.where((e) => e.isCompleted).length;
-    final progress = steps.isEmpty ? 0.0 : completedCount / steps.length;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Sipariş Detayı'),
-        backgroundColor: Colors.teal,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1100),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(22),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 8,
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 34,
-                        backgroundColor: statusColor.withOpacity(0.12),
-                        child: Icon(
-                          Icons.shopping_bag,
-                          size: 34,
-                          color: statusColor,
-                        ),
-                      ),
-                      const SizedBox(width: 18),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              order.orderNo,
-                              style: const TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Ürün: ${_productLabel(order.productType)}',
-                              style: TextStyle(color: Colors.grey[700]),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'İşlem yapan kullanıcı: ${currentUser.displayName}',
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: statusColor.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          _statusLabel(order.orderStatus),
-                          style: TextStyle(
-                            color: statusColor,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: _buildSectionCard(
-                        title: 'Sipariş Bilgileri',
-                        child: Column(
-                          children: [
-                            _buildKeyValueRow('Order ID', order.orderId?.toString() ?? '—'),
-                            _buildKeyValueRow('Session ID', order.sessionId.toString()),
-                            _buildKeyValueRow('Patient ID', order.patientId.toString()),
-                            _buildKeyValueRow('Clinic ID', order.clinicId.toString()),
-                            _buildKeyValueRow('Expert User ID', order.expertUserId.toString()),
-                            _buildKeyValueRow(
-                              'Assigned OptiYou User ID',
-                              order.assignedOptityouUserId?.toString() ?? '—',
-                            ),
-                            _buildKeyValueRow(
-                              'Sipariş Tarihi',
-                              _formatDate(order.orderedAt),
-                            ),
-                            _buildKeyValueRow(
-                              'Kargo Tarihi',
-                              _formatDate(order.shippedAt),
-                            ),
-                            _buildKeyValueRow(
-                              'Teslim Tarihi',
-                              _formatDate(order.deliveredAt),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 24),
-                    Expanded(
-                      flex: 3,
-                      child: Column(
-                        children: [
-                          _buildSectionCard(
-                            title: 'Üretim / Sipariş Akışı',
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Tamamlanma Oranı: ${(progress * 100).toStringAsFixed(0)}%',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(999),
-                                  child: LinearProgressIndicator(
-                                    value: progress,
-                                    minHeight: 10,
-                                    backgroundColor: Colors.grey.shade300,
-                                    color: Colors.teal,
-                                  ),
-                                ),
-                                const SizedBox(height: 22),
-                                ...List.generate(steps.length, (index) {
-                                  final step = steps[index];
-                                  final isLast = index == steps.length - 1;
-                                  return _buildFlowStep(
-                                    step: step,
-                                    isLast: isLast,
-                                  );
-                                }),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          _buildSectionCard(
-                            title: 'Fiyat Bilgileri',
-                            child: Column(
-                              children: [
-                                _buildKeyValueRow(
-                                  'Brüt Tutar',
-                                  _formatMoney(order.grossAmount, order.currencyCode),
-                                ),
-                                _buildKeyValueRow(
-                                  'İndirim',
-                                  _formatMoney(order.discountAmount, order.currencyCode),
-                                ),
-                                _buildKeyValueRow(
-                                  'Net Tutar',
-                                  _formatMoney(order.netAmount, order.currencyCode),
-                                ),
-                                _buildKeyValueRow(
-                                  'Para Birimi',
-                                  order.currencyCode,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

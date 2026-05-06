@@ -9,6 +9,11 @@ import 'package:oy_site/screens/dashboard/orthotic_design_form_screen.dart';
 import 'package:oy_site/screens/dashboard/pressure_measurement_dialog.dart';
 import 'package:oy_site/screens/dashboard/scan_folder_upload_dialog.dart';
 import 'package:oy_site/screens/dashboard/session_analysis_results_screen.dart';
+import 'package:flutter/services.dart';
+import 'package:oy_site/data/repositories/supabase_patient_invite_repository.dart';
+import 'package:oy_site/models/patient_invite_model.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:oy_site/data/repositories/supabase_measurement_session_repository.dart';
 
 class SessionDetailScreen extends StatefulWidget {
   final AppUser currentUser;
@@ -28,6 +33,15 @@ class SessionDetailScreen extends StatefulWidget {
 
 class _SessionDetailScreenState extends State<SessionDetailScreen> {
   late MeasurementSession _currentSession;
+
+  final SupabaseMeasurementSessionRepository _sessionRepository =
+    SupabaseMeasurementSessionRepository();
+
+  final SupabasePatientInviteRepository _inviteRepository =
+      SupabasePatientInviteRepository();
+
+  PatientInviteModel? _latestInvite;
+  bool _isCreatingInvite = false;
 
   String? _scanFolderPath;
   List<String> _scanFolderFiles = [];
@@ -252,6 +266,33 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
     );
   }
 
+  Widget _buildInviteQrCard() {
+    return _buildSectionCard(
+      title: 'Kullanıcı Kayıt Daveti',
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              _latestInvite == null
+                  ? 'Davet henüz oluşturulmadı. Ölçümü onayladıktan sonra QR ve kayıt linki oluşturulur.'
+                  : 'Davet oluşturuldu. QR kodu tekrar görüntüleyebilir veya linki kopyalayabilirsiniz.',
+              style: TextStyle(
+                color: Colors.grey[700],
+                height: 1.4,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          OutlinedButton.icon(
+            onPressed: _latestInvite == null ? null : _showLatestInviteQr,
+            icon: const Icon(Icons.qr_code),
+            label: const Text('QR'),
+          ),
+        ],
+      ),
+    );
+  }
+
   List<_SessionStepItem> _buildSessionSteps() {
     final hasUploadedScanFolder = _hasUploadedScanFolder;
 
@@ -294,11 +335,13 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
         onTap: _openDesignFormScreen,
       ),
       _SessionStepItem(
-        icon: Icons.shopping_bag,
-        title: 'Sipariş',
-        subtitle: 'Bu oturumdan sipariş oluşturma akışı',
+        icon: Icons.verified_user_outlined,
+        title: 'Ölçümü Onayla',
+        subtitle: _currentSession.orderCreated
+            ? 'Ölçüm onaylandı ve kayıt daveti oluşturuldu'
+            : 'Ölçümü tamamla, kullanıcı kayıt linki ve QR oluştur',
         isCompleted: _currentSession.orderCreated,
-        onTap: _openOrderCreateScreen,
+        onTap: _confirmMeasurementAndCreateInvite,
       ),
     ];
   }
@@ -307,6 +350,25 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
     final items = _buildSessionSteps();
     final completedCount = items.where((e) => e.isCompleted).length;
     return items.isEmpty ? 0 : completedCount / items.length;
+  }
+
+  Future<void> _persistSessionUpdate(MeasurementSession updatedSession) async {
+    setState(() {
+      _currentSession = updatedSession;
+    });
+
+    try {
+      await _sessionRepository.updateSession(session: updatedSession);
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Oturum güncellenemedi: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Future<void> _openClinicalInfoScreen() async {
@@ -321,17 +383,19 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
     );
 
     if (result == true && mounted) {
-      setState(() {
-        final updated = _currentSession.copyWith(
-          clinicalInfoCompleted: true,
-          updatedAt: DateTime.now(),
-        );
+      final updated = _currentSession.copyWith(
+        clinicalInfoCompleted: true,
+        updatedAt: DateTime.now(),
+      );
 
-        _currentSession = updated.copyWith(
+      await _persistSessionUpdate(
+        updated.copyWith(
           completedAt:
               updated.allStepsCompleted ? DateTime.now() : updated.completedAt,
-        );
-      });
+        ),
+      );
+
+      if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -353,17 +417,21 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
     setState(() {
       _scanFolderPath = result.folderPath;
       _scanFolderFiles = result.fileNames;
+    });
 
-      final updated = _currentSession.copyWith(
-        has3dScan: true,
-        updatedAt: DateTime.now(),
-      );
+    final updated = _currentSession.copyWith(
+      has3dScan: true,
+      updatedAt: DateTime.now(),
+    );
 
-      _currentSession = updated.copyWith(
+    await _persistSessionUpdate(
+      updated.copyWith(
         completedAt:
             updated.allStepsCompleted ? DateTime.now() : updated.completedAt,
-      );
-    });
+      ),
+    );
+
+    if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -386,17 +454,19 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
     );
 
     if (result == true && mounted) {
-      setState(() {
-        final updated = _currentSession.copyWith(
-          designFormCompleted: true,
-          updatedAt: DateTime.now(),
-        );
+      final updated = _currentSession.copyWith(
+        designFormCompleted: true,
+        updatedAt: DateTime.now(),
+      );
 
-        _currentSession = updated.copyWith(
+      await _persistSessionUpdate(
+        updated.copyWith(
           completedAt:
               updated.allStepsCompleted ? DateTime.now() : updated.completedAt,
-        );
-      });
+        ),
+      );
+
+      if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -426,49 +496,28 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
         sessionCode: _currentSession.sessionCode,
       ),
     );
-  }
 
-  Future<void> _openOrderCreateScreen() async {
-    if (!_currentSession.canCreateOrder) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Sipariş oluşturmadan önce önceki tüm adımlar tamamlanmalıdır.',
-          ),
-        ),
-      );
-      return;
-    }
+    if (!mounted) return;
 
-    final newOrder = await Navigator.push<OrderModel>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => OrderCreateScreen(
-          currentUser: widget.currentUser,
-          session: _currentSession,
-        ),
+    final updated = _currentSession.copyWith(
+      hasPlantarCsv: true,
+      updatedAt: DateTime.now(),
+    );
+
+    await _persistSessionUpdate(
+      updated.copyWith(
+        completedAt:
+            updated.allStepsCompleted ? DateTime.now() : updated.completedAt,
       ),
     );
 
-    if (newOrder != null && mounted) {
-      setState(() {
-        final updated = _currentSession.copyWith(
-          orderCreated: true,
-          updatedAt: DateTime.now(),
-        );
+    if (!mounted) return;
 
-        _currentSession = updated.copyWith(
-          completedAt:
-              updated.allStepsCompleted ? DateTime.now() : updated.completedAt,
-        );
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${newOrder.orderNo} oluşturuldu.'),
-        ),
-      );
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Plantar basınç ölçümü tamamlandı.'),
+      ),
+    );
   }
 
   Future<void> _openInsolePhotoUploadDialog() async {
@@ -479,17 +528,19 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
     );
 
     if (result == true && mounted) {
-      setState(() {
-        final updated = _currentSession.copyWith(
-          hasInsolePhoto: true,
-          updatedAt: DateTime.now(),
-        );
+      final updated = _currentSession.copyWith(
+        hasInsolePhoto: true,
+        updatedAt: DateTime.now(),
+      );
 
-        _currentSession = updated.copyWith(
+      await _persistSessionUpdate(
+        updated.copyWith(
           completedAt:
               updated.allStepsCompleted ? DateTime.now() : updated.completedAt,
-        );
-      });
+        ),
+      );
+
+      if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -497,6 +548,157 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
         ),
       );
     }
+  }
+
+  Future<void> _confirmMeasurementAndCreateInvite() async {
+    if (!_currentSession.canCreateOrder) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Ölçümü onaylamadan önce önceki tüm adımlar tamamlanmalıdır.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final patientId = _currentSession.patientId;
+    final sessionId = _currentSession.sessionId;
+    final expertUserId = widget.currentUser.userId;
+
+    if (sessionId == null || expertUserId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Oturum veya uzman kullanıcı ID bulunamadı.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isCreatingInvite = true;
+    });
+
+    try {
+      final invite = await _inviteRepository.createInvite(
+        patientId: patientId,
+        sessionId: sessionId,
+        expertUserId: expertUserId,
+      );
+
+      if (!mounted) return;
+
+      final updated = _currentSession.copyWith(
+        orderCreated: true,
+        updatedAt: DateTime.now(),
+      );
+
+      await _persistSessionUpdate(
+        updated.copyWith(
+          completedAt:
+              updated.allStepsCompleted ? DateTime.now() : updated.completedAt,
+        ),
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _latestInvite = invite;
+        _isCreatingInvite = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ölçüm onaylandı ve kayıt daveti oluşturuldu.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      _showInviteDialog(invite);
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isCreatingInvite = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Davet oluşturulamadı: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _showInviteDialog(PatientInviteModel invite) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Kullanıcı Kayıt Daveti'),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Taraması yapılan kişi bu link veya QR ile kayıt olup ölçüm sonuçlarını kendi hesabında görüntüleyebilir.',
+              ),
+              const SizedBox(height: 18),
+              QrImageView(
+                data: invite.registrationUrl,
+                version: QrVersions.auto,
+                size: 220,
+              ),
+              const SizedBox(height: 14),
+              SelectableText(
+                invite.registrationUrl,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await Clipboard.setData(
+                ClipboardData(text: invite.registrationUrl),
+              );
+
+              if (!mounted) return;
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Davet linki kopyalandı.'),
+                ),
+              );
+            },
+            child: const Text('Linki Kopyala'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Kapat'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLatestInviteQr() {
+    final invite = _latestInvite;
+
+    if (invite == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Önce ölçüm onaylanmalı ve davet oluşturulmalıdır.'),
+        ),
+      );
+      return;
+    }
+
+    _showInviteDialog(invite);
   }
 
   void _openAnalysisResults() {
@@ -652,6 +854,8 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                           ),
                           const SizedBox(height: 16),
                           _buildAnalysisResultsCard(),
+                          const SizedBox(height: 16),
+                          _buildInviteQrCard(),
                           if (_scanFolderPath != null) ...[
                             const SizedBox(height: 16),
                             _buildSectionCard(
