@@ -19,6 +19,15 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
   flutter::DartProject project(L"data");
 
+  // Impeller'i (Windows varsayilan render motoru) kapat, Skia'ya don.
+  //
+  // Sebep: ana sayfadaki hero videosu media_kit ile ANGLE/D3D texture'i
+  // uzerinden ciziliyor. Giris ekranina gecis animasyonu sirasinda bu
+  // texture serbest birakilip yeniden olusturuluyor ve Impeller'in GL
+  // yoluyla cakisip native crash veriyor (ozellikle Win10 GPU
+  // suruculerinde). Skia + media_kit Windows'ta kararli.
+  project.set_impeller_switch(flutter::ImpellerSwitch::Disabled);
+
   std::vector<std::string> command_line_arguments =
       GetCommandLineArguments();
 
